@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "1x3Nai8zIWx75_YDlcf7p"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "readysetgo app icon"
+
+[[generated]]
+id = "1OKXvnOBfzSzhaPF0RmN4"
+uri = "file://artifacts/mobile/assets/images/tournament-bg.png"
+type = "image"
+title = "volleyball tournament hall"

@@ -1,0 +1,303 @@
+Act as an expert full-stack engineer, product manager, and UI/UX designer. Build a mobile-first web app called **ReadySetGo**.
+
+---
+
+## 🧠 PRODUCT OVERVIEW
+
+ReadySetGo is a coordination app for club volleyball families traveling to tournaments. It helps parents arriving at the same airport and going to the same hotel find each other and coordinate shared rides.
+
+This is NOT a rideshare app — it is a coordination layer.
+
+The goal is extreme simplicity: users should get value (see matches) within 30 seconds.
+
+---
+
+## 🎯 CORE USER FLOW
+
+1. User signs up / logs in (email + password)
+2. FIRST TIME ONLY → enters a **club code**
+3. Lands on tournament selection page
+4. Selects a tournament
+5. Enters travel info:
+
+   * Airport
+   * Arrival or Departure toggle
+   * Date & time
+   * Hotel (selected via smart suggestions)
+6. Sees matching users
+7. Joins or creates a **group chat**
+
+---
+
+## 🔐 CLUB CODE SYSTEM (CRITICAL)
+
+* Prompt for club code ONLY on first login
+* Create a database table: **ClubCodes**
+
+  * code (case-sensitive)
+  * club name
+  * team name
+
+### Logic:
+
+* If correct → grant access + store club/team
+
+* If incorrect → show:
+  “Code is case sensitive. Please check with your club director to confirm your team has access.”
+
+* Never ask again after success
+
+---
+
+## 🏐 TOURNAMENT SYSTEM
+
+Create a **Tournaments** database:
+
+* Name
+* Location (IMPORTANT: used for maps search)
+* Dates
+* Image (manually uploaded)
+* Description
+
+---
+
+## 🗺️ GOOGLE MAPS / PLACES API INTEGRATION (IMPORTANT)
+
+Integrate Google Maps Places API to dynamically suggest hotels.
+
+### Behavior:
+
+When user is entering travel info:
+
+1. Use the selected tournament’s **location**
+2. Query Google Places API for:
+
+   * “Hotels near [tournament location]”
+3. Display results as selectable options:
+
+   * Hotel name
+   * Address
+   * (Optional: rating)
+
+### UX:
+
+* Hotel input is NOT free text by default
+* Instead:
+
+  * Search bar with autocomplete
+  * Suggested hotels appear in a list
+  * User taps to select
+
+### Fallback:
+
+* Allow manual entry ONLY if needed:
+  “Can’t find your hotel? Enter manually”
+
+---
+
+## ✈️ TRAVEL INPUT
+
+Fields:
+
+* Airport (text or dropdown)
+* Mode: Arrival / Departure (toggle)
+* Date & Time
+* Hotel (Google Places selection)
+* Optional: baggage count
+
+Store as “Trip”
+
+---
+
+## 🔍 MATCHING LOGIC
+
+Match users based on:
+
+* Same tournament
+* Same airport
+* Same hotel (exact match from Places ID or name)
+* Same mode (arrival/departure)
+* Time within ±45 minutes
+
+---
+
+## 👥 MATCH DISPLAY
+
+Group users into clusters:
+
+Example:
+
+“3 families arriving near you”
+LAX → Marriott Marquis
+3:10–3:40 PM
+
+Include:
+
+* number of users
+* airport → hotel
+* time range
+
+CTA:
+“View Group” or “Join Chat”
+
+---
+
+## 💬 GROUP CHAT
+
+Each match group has a simple chat:
+
+* text messages
+* sender name
+* timestamp
+
+NO:
+
+* media
+* reactions
+* threads
+
+---
+
+## 📱 UI / UX DESIGN
+
+### Overall Feel:
+
+* Mobile-first (iPhone priority)
+* Clean, minimal, intuitive
+
+### Inspired by Uber:
+
+* Bottom sheets for input and details
+* Large, tappable cards
+* Clear primary buttons
+* Fast transitions
+* Familiar layout patterns
+
+---
+
+### Key UI Components:
+
+#### Dashboard
+
+* Tournament name at top
+* Arrival / Departure toggle
+* “Enter Travel Info” button
+* Match cards below
+
+---
+
+#### Hotel Selection UI
+
+* Search bar
+* Autocomplete dropdown
+* Hotel list cards
+* Clean selection state
+
+---
+
+#### Match Cards
+
+* Rounded cards
+* Large headline (# families)
+* Route + time
+* CTA button
+
+---
+
+#### Chat Screen
+
+* Simple message bubbles
+* Minimal design
+
+---
+
+## 🧱 DATABASE STRUCTURE
+
+Users:
+
+* name
+* email
+* club
+* team
+
+ClubCodes:
+
+* code
+* club
+* team
+
+Tournaments:
+
+* name
+* location
+* date
+* image
+* description
+
+Trips:
+
+* user
+* tournament
+* airport
+* hotel_name
+* hotel_place_id (IMPORTANT)
+* datetime
+* mode
+
+Chats:
+
+* id
+* match_group_id
+
+Messages:
+
+* chat_id
+* sender
+* text
+* timestamp
+
+---
+
+## 🚫 DO NOT INCLUDE
+
+* payments
+* ride booking
+* complex notifications
+* unnecessary pages
+
+---
+
+## 🎯 FINAL GOAL
+
+A parent can:
+→ enter travel info
+→ instantly see matching families
+→ start a chat to coordinate rides
+
+---
+
+## 🔥 PRIORITIES
+
+1. Clean UX
+2. Google Maps hotel integration
+3. Accurate matching logic
+4. Simple chat
+
+---
+
+## 🎨 FINAL DESIGN DIRECTION
+
+Make the app feel like Uber:
+
+* intuitive
+* familiar
+* minimal
+* fast
+
+Use:
+
+* bottom sheets
+* card-based UI
+* strong visual hierarchy
+
+Users should feel like they already know how to use it immediately.
