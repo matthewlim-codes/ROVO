@@ -1,43 +1,65 @@
+/**
+ * ReadySetGo — Uber-inspired design tokens
+ *
+ * Primary: near-black (#0A0A0A) — commands attention, signals trust
+ * Background: soft off-white (#F6F6F6) — airy, light, familiar
+ * Accent: confident green (#22C55E) — matches, success, "go"
+ * Surface: pure white cards with subtle shadows
+ */
+
 const colors = {
   light: {
-    text: "#0f172a",
-    tint: "#f97316",
+    text: "#0A0A0A",
+    tint: "#22C55E",
 
-    background: "#f8fafc",
-    foreground: "#0f172a",
+    // Core surfaces
+    background: "#F6F6F6",
+    foreground: "#0A0A0A",
 
-    card: "#ffffff",
-    cardForeground: "#0f172a",
+    // Cards / elevated surfaces
+    card: "#FFFFFF",
+    cardForeground: "#0A0A0A",
 
-    primary: "#f97316",
-    primaryForeground: "#ffffff",
+    // Primary action — near-black like Uber
+    primary: "#0A0A0A",
+    primaryForeground: "#FFFFFF",
 
-    secondary: "#1e3a5f",
-    secondaryForeground: "#ffffff",
+    // Secondary — dark charcoal for secondary actions
+    secondary: "#1C1C1C",
+    secondaryForeground: "#FFFFFF",
 
-    muted: "#f1f5f9",
-    mutedForeground: "#64748b",
+    // Muted / subdued elements
+    muted: "#F0F0F0",
+    mutedForeground: "#8A8A8A",
 
-    accent: "#fff7ed",
-    accentForeground: "#f97316",
+    // Accent — Uber-green for matches/success/CTAs
+    accent: "#22C55E",
+    accentForeground: "#FFFFFF",
 
-    destructive: "#ef4444",
-    destructiveForeground: "#ffffff",
+    // Subtle green tint for backgrounds
+    accentSurface: "#F0FDF4",
+    accentBorder: "#86EFAC",
 
-    border: "#e2e8f0",
-    input: "#e2e8f0",
+    // Destructive
+    destructive: "#EF4444",
+    destructiveForeground: "#FFFFFF",
 
-    success: "#22c55e",
-    successForeground: "#ffffff",
+    // Borders and inputs — very subtle
+    border: "#EBEBEB",
+    input: "#F0F0F0",
 
-    navy: "#1e3a5f",
-    navyLight: "#264d7a",
-    orange: "#f97316",
-    orangeLight: "#fb923c",
-    orangeDark: "#ea6c0a",
+    // Additional semantic
+    success: "#22C55E",
+    successForeground: "#FFFFFF",
+
+    // Separator
+    separator: "#E8E8E8",
+
+    // Overlay (for bottom sheets / modals)
+    overlay: "rgba(0,0,0,0.4)",
   },
 
-  radius: 16,
+  radius: 14,
 };
 
 export default colors;

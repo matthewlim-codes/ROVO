@@ -35,10 +35,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         style={[
           styles.inputRow,
           {
-            backgroundColor: colors.card,
-            borderColor: error ? colors.destructive : colors.border,
-            borderRadius: colors.radius - 4,
+            backgroundColor: colors.input,
+            borderColor: error ? colors.destructive : "transparent",
+            borderRadius: 12,
           },
+          error && { borderWidth: 1.5 },
         ]}
       >
         {leftIcon && <View style={styles.iconLeft}>{leftIcon}</View>}
@@ -70,27 +71,24 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 
 const styles = StyleSheet.create({
   container: {
-    gap: 6,
+    gap: 8,
   },
   label: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
     height: 52,
   },
   iconLeft: {
     paddingLeft: 14,
-    paddingRight: 8,
+    paddingRight: 10,
   },
   iconRight: {
     paddingRight: 14,
-    paddingLeft: 8,
+    paddingLeft: 10,
   },
   input: {
     flex: 1,

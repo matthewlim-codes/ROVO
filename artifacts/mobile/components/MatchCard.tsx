@@ -1,12 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MatchGroup } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
@@ -19,8 +14,8 @@ interface MatchCardProps {
 export function MatchCard({ group }: MatchCardProps) {
   const colors = useColors();
   const timeRange = formatTimeRange(group.earliestTime, group.latestTime);
-  const familyCount = group.count - 1;
-  const familyLabel = familyCount === 1 ? "family" : "families";
+  const otherFamilies = group.count - 1;
+  const familyLabel = otherFamilies === 1 ? "family" : "families";
 
   return (
     <Pressable
@@ -29,57 +24,103 @@ export function MatchCard({ group }: MatchCardProps) {
         styles.card,
         {
           backgroundColor: colors.card,
-          borderRadius: colors.radius,
-          opacity: pressed ? 0.9 : 1,
-          shadowColor: colors.navy,
+          borderRadius: 20,
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
         },
       ]}
     >
-      <View style={styles.header}>
+      <View style={styles.topRow}>
         <View
-          style={[styles.badge, { backgroundColor: colors.accent }]}
+          style={[
+            styles.modePill,
+            { backgroundColor: colors.accentSurface },
+          ]}
         >
-          <Feather
-            name={group.mode === "arrival" ? "arrow-down-circle" : "arrow-up-circle"}
-            size={14}
-            color={colors.orange}
+          <View
+            style={[styles.modeDot, { backgroundColor: colors.accent }]}
           />
-          <Text style={[styles.badgeText, { color: colors.orange }]}>
+          <Text style={[styles.modeText, { color: colors.accent }]}>
             {group.mode === "arrival" ? "Arriving" : "Departing"}
           </Text>
         </View>
-        <Text style={[styles.time, { color: colors.mutedForeground }]}>
+        <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
           {timeRange}
         </Text>
       </View>
 
       <Text style={[styles.headline, { color: colors.foreground }]}>
-        {familyCount} {familyLabel} {group.mode === "arrival" ? "arriving" : "departing"} near you
+        {otherFamilies} {familyLabel}{" "}
+        {group.mode === "arrival" ? "arriving" : "departing"} near you
       </Text>
 
-      <View style={styles.route}>
-        <View style={styles.routeItem}>
-          <Feather name="airplay" size={16} color={colors.mutedForeground} />
-          <Text style={[styles.routeText, { color: colors.foreground }]}>
+      <View
+        style={[styles.routeRow, { backgroundColor: colors.muted, borderRadius: 12 }]}
+      >
+        <View style={styles.routeSegment}>
+          <Text style={[styles.routeLabel, { color: colors.mutedForeground }]}>
+            FROM
+          </Text>
+          <Text style={[styles.routeValue, { color: colors.foreground }]}>
             {group.airport}
           </Text>
         </View>
-        <Feather name="arrow-right" size={14} color={colors.mutedForeground} />
-        <View style={styles.routeItem}>
-          <Feather name="home" size={16} color={colors.mutedForeground} />
-          <Text style={[styles.routeText, { color: colors.foreground }]} numberOfLines={1}>
+        <View style={[styles.routeDivider, { backgroundColor: colors.separator }]} />
+        <View style={[styles.routeSegment, { flex: 2 }]}>
+          <Text style={[styles.routeLabel, { color: colors.mutedForeground }]}>
+            TO
+          </Text>
+          <Text
+            style={[styles.routeValue, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
             {group.hotel}
           </Text>
         </View>
       </View>
 
-      <View
-        style={[styles.cta, { backgroundColor: colors.primary, borderRadius: colors.radius - 4 }]}
-      >
-        <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>
-          Join Group Chat
-        </Text>
-        <Feather name="message-circle" size={16} color={colors.primaryForeground} />
+      <View style={styles.footer}>
+        <View style={styles.avatarRow}>
+          {Array.from({ length: Math.min(group.count, 4) }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor:
+                    i === 0 ? colors.accent : colors.muted,
+                  marginLeft: i === 0 ? 0 : -8,
+                  borderColor: colors.card,
+                },
+              ]}
+            >
+              <Feather
+                name="user"
+                size={10}
+                color={i === 0 ? "#fff" : colors.mutedForeground}
+              />
+            </View>
+          ))}
+          {group.count > 4 && (
+            <Text
+              style={[styles.avatarMore, { color: colors.mutedForeground }]}
+            >
+              +{group.count - 4}
+            </Text>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.joinBtn,
+            { backgroundColor: colors.primary, borderRadius: 100 },
+          ]}
+        >
+          <Text style={[styles.joinBtnText, { color: colors.primaryForeground }]}>
+            Join Group
+          </Text>
+          <Feather name="arrow-right" size={14} color={colors.primaryForeground} />
+        </View>
       </View>
     </Pressable>
   );
@@ -88,66 +129,98 @@ export function MatchCard({ group }: MatchCardProps) {
 const styles = StyleSheet.create({
   card: {
     padding: 20,
-    marginHorizontal: 16,
     marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    boxShadow: "0px 2px 12px rgba(0,0,0,0.07)",
     elevation: 3,
-    gap: 12,
+    gap: 14,
   },
-  header: {
+  topRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
   },
-  badge: {
+  modePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 100,
   },
-  badgeText: {
+  modeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  modeText: {
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
   },
-  time: {
+  timeText: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
   },
   headline: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
-    lineHeight: 26,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
-  route: {
+  routeRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 0,
+  },
+  routeSegment: {
+    flex: 1,
+    gap: 3,
+  },
+  routeDivider: {
+    width: 1,
+    marginHorizontal: 14,
+  },
+  routeLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+  },
+  routeValue: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  footer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
   },
-  routeItem: {
+  avatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  avatarMore: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    marginLeft: 6,
+  },
+  joinBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  routeText: {
+  joinBtnText: {
     fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    flex: 1,
-  },
-  cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 4,
-  },
-  ctaText: {
-    fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
 });

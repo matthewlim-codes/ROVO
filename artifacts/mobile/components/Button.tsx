@@ -14,7 +14,7 @@ import { useColors } from "@/hooks/useColors";
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "success" | "danger";
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
@@ -43,16 +43,22 @@ export function Button({
     variant === "primary"
       ? colors.primary
       : variant === "secondary"
-        ? colors.secondary
-        : variant === "danger"
-          ? colors.destructive
-          : "transparent";
+        ? colors.muted
+        : variant === "success"
+          ? colors.accent
+          : variant === "danger"
+            ? colors.destructive
+            : "transparent";
 
   const textColor =
-    variant === "ghost" ? colors.primary : colors.primaryForeground;
+    variant === "secondary"
+      ? colors.foreground
+      : variant === "ghost"
+        ? colors.foreground
+        : "#FFFFFF";
 
-  const height = size === "sm" ? 40 : size === "lg" ? 60 : 52;
-  const fontSize = size === "sm" ? 14 : size === "lg" ? 18 : 16;
+  const height = size === "sm" ? 40 : size === "lg" ? 58 : 52;
+  const fontSize = size === "sm" ? 14 : size === "lg" ? 17 : 16;
 
   return (
     <Pressable
@@ -63,12 +69,13 @@ export function Button({
         {
           backgroundColor: bgColor,
           height,
-          borderRadius: colors.radius,
-          opacity: pressed || disabled ? 0.7 : 1,
+          borderRadius: height / 2,
+          opacity: pressed ? 0.75 : disabled ? 0.4 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         variant === "ghost" && {
           borderWidth: 1.5,
-          borderColor: colors.primary,
+          borderColor: colors.border,
         },
         style,
       ]}
@@ -88,10 +95,10 @@ const styles = StyleSheet.create({
   base: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   text: {
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 });

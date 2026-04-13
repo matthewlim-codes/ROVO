@@ -1,0 +1,125 @@
+Redesign the UI of this app to feel similar to Uber — clean, minimal, and highly intuitive.
+
+## Overall Design Goals
+
+* Mobile-first (iPhone priority)
+* Extremely simple and familiar
+* One main action per screen
+* Large touch targets
+* Fast, frictionless navigation
+
+## Visual Style
+
+* Background: light gray / off-white
+* Primary color: black or deep blue
+* Accent: subtle green for matches/success
+* Rounded cards with soft shadows
+* No clutter, no unnecessary icons
+
+## Layout Behavior
+
+* Use bottom sheets (slide-up panels) for:
+
+  * entering travel info
+  * viewing match details
+  * chat
+* Keep main screen static and clean
+
+---
+
+## 🏠 Dashboard (Main Screen)
+
+Top:
+
+* Tournament name (bold)
+* Location + date (small text below)
+
+Below:
+
+* Toggle: “Arrivals” | “Departures”
+
+Primary CTA:
+
+* Large button: “Enter Travel Details”
+
+Main Content:
+
+* Match cards (MOST IMPORTANT ELEMENT)
+
+---
+
+## 👥 Match Cards (HIGHEST PRIORITY)
+
+Design these like Uber ride options:
+
+* Large rounded card
+* Clear hierarchy:
+
+Top (large bold):
+“3 families arriving near you”
+
+Middle:
+LAX → Marriott Marquis
+
+Bottom:
+3:10 – 3:40 PM
+
+CTA Button:
+“Join Group”
+
+* Cards should feel tappable and prominent
+* Add slight shadow and spacing between cards
+
+---
+
+## ✈️ Travel Input (Bottom Sheet)
+
+When user taps “Enter Travel Details”:
+
+Slide up panel with:
+
+* Airport input (with autocomplete)
+* Arrival / Departure toggle
+* Date + time picker
+* Hotel selector (Google Places)
+* Submit button (large, fixed at bottom)
+
+---
+
+## 🗺️ Inputs (IMPORTANT UX)
+
+Airport + Hotel should:
+
+* Use autocomplete
+* Show suggestions
+* Be easy to tap (no typing-heavy UX)
+
+---
+
+## 💬 Chat Screen
+
+* Simple message bubbles
+* Clean layout
+* No extra features
+* Focus on readability
+
+---
+
+## UX Rules
+
+* Familiar > creative
+* Reduce thinking
+* Keep everything obvious
+* Avoid multiple competing buttons
+* Prioritize speed and clarity
+
+---
+
+## Inspiration
+
+The app should feel like:
+
+* Uber (primary reference)
+* Airbnb (secondary for polish)
+
+Users should feel like they already know how to use it.

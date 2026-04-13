@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -44,64 +43,58 @@ export default function ClubCodeScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <LinearGradient
-        colors={[colors.navy, "#264d7a"]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View
           style={[
-            styles.container,
+            styles.inner,
             {
               paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 40,
               paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 40,
             },
           ]}
         >
-          <View style={styles.iconBox}>
-            <Feather name="shield" size={48} color="#fff" />
+          <View
+            style={[styles.iconBox, { backgroundColor: colors.muted }]}
+          >
+            <Feather name="shield" size={32} color={colors.foreground} />
           </View>
 
-          <Text style={styles.title}>Enter Club Code</Text>
-          <Text style={styles.subtitle}>
-            Hi {user?.name?.split(" ")[0]}! Your club director provided a unique
-            code to verify your team membership.
-          </Text>
+          <View style={styles.textBlock}>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              Enter club code
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              Hi {user?.name?.split(" ")[0]}! Your club director provided a
+              code to verify your team membership.
+            </Text>
+          </View>
 
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderRadius: colors.radius },
-            ]}
-          >
+          <View style={styles.form}>
             <Input
-              label="Club Code"
-              placeholder="e.g. GOLD2024"
+              placeholder="Club code (e.g. GOLD2024)"
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
               autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
-              leftIcon={<Feather name="key" size={18} color={colors.mutedForeground} />}
-              style={{ letterSpacing: 2, fontFamily: "Inter_700Bold" }}
+              style={{
+                letterSpacing: 3,
+                fontFamily: "Inter_700Bold",
+                fontSize: 18,
+                textAlign: "center",
+              }}
             />
 
             {error ? (
               <View
                 style={[
                   styles.errorBox,
-                  {
-                    backgroundColor: "#fef2f2",
-                    borderRadius: colors.radius - 8,
-                  },
+                  { backgroundColor: "#FEF2F2", borderRadius: 12 },
                 ]}
               >
                 <Feather name="alert-circle" size={14} color={colors.destructive} />
@@ -119,17 +112,17 @@ export default function ClubCodeScreen() {
             />
           </View>
 
-          <View style={styles.hintBox}>
-            <Feather name="info" size={14} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.hint}>
-              Codes are case sensitive. Contact your club director if you
-              don&apos;t have one.
+          <View
+            style={[
+              styles.hintBox,
+              { backgroundColor: colors.muted, borderRadius: 12 },
+            ]}
+          >
+            <Feather name="info" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+              Demo codes: GOLD2024 · STORM24 · VBALL25 · ELITE25 · FURY2025
             </Text>
           </View>
-
-          <Text style={styles.demoHint}>
-            Demo codes: GOLD2024, STORM24, VBALL25, ELITE25, FURY2025
-          </Text>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -137,43 +130,33 @@ export default function ClubCodeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  inner: {
     flex: 1,
     paddingHorizontal: 24,
-    gap: 24,
+    gap: 28,
     alignItems: "stretch",
   },
   iconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 64,
+    height: 64,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
+    alignSelf: "flex-start",
   },
+  textBlock: { gap: 8 },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: "Inter_700Bold",
-    color: "#ffffff",
-    textAlign: "center",
+    letterSpacing: -0.8,
   },
   subtitle: {
     fontSize: 16,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.8)",
-    textAlign: "center",
     lineHeight: 24,
   },
-  card: {
-    padding: 24,
-    gap: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
-  },
+  form: { gap: 12 },
   errorBox: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -190,18 +173,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     alignItems: "flex-start",
+    padding: 14,
   },
   hint: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
     flex: 1,
-    lineHeight: 18,
-  },
-  demoHint: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
+    lineHeight: 20,
   },
 });

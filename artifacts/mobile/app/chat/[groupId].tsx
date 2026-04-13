@@ -23,7 +23,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
-  const { loadMessages, sendMessage, trips, selectedTournament } = useTrip();
+  const { loadMessages, sendMessage, trips } = useTrip();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -37,15 +37,15 @@ export default function ChatScreen() {
   });
 
   const familyCount = new Set(groupTrips.map((t) => t.userId)).size;
+  const firstTrip = groupTrips[0];
 
   useEffect(() => {
-    if (messages.length === 0 && groupTrips.length > 0) {
-      const first = groupTrips[0];
+    if (messages.length === 0 && firstTrip) {
       sendMessage(groupId ?? "", {
         groupId: groupId ?? "",
         senderId: "system",
         senderName: "ReadySetGo",
-        text: `Group created for ${first.airport} → ${first.hotel} (${first.mode}). ${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride!`,
+        text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
         timestamp: new Date().toISOString(),
       });
     }
@@ -67,30 +67,53 @@ export default function ChatScreen() {
     inputRef.current?.focus();
   };
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
+  const renderItem = ({ item }: { item: ChatMessage }) => {
     const isMe = item.senderId === user?.id;
     const isSystem = item.senderId === "system";
 
     if (isSystem) {
       return (
-        <View style={styles.systemMsg}>
-          <Text style={[styles.systemText, { color: colors.mutedForeground }]}>
-            {item.text}
-          </Text>
+        <View style={styles.systemRow}>
+          <View
+            style={[
+              styles.systemBubble,
+              { backgroundColor: colors.muted, borderRadius: 10 },
+            ]}
+          >
+            <Text style={[styles.systemText, { color: colors.mutedForeground }]}>
+              {item.text}
+            </Text>
+          </View>
         </View>
       );
     }
 
     return (
-      <View style={[styles.msgRow, isMe && styles.msgRowMe]}>
+      <View
+        style={[
+          styles.msgRow,
+          isMe ? styles.msgRowMe : styles.msgRowOther,
+        ]}
+      >
         {!isMe && (
-          <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.avatarText, { color: colors.orange }]}>
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: colors.muted },
+            ]}
+          >
+            <Text style={[styles.avatarLetter, { color: colors.foreground }]}>
               {item.senderName.charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
-        <View style={{ maxWidth: "75%", gap: 3 }}>
+
+        <View
+          style={[
+            styles.bubbleGroup,
+            isMe && styles.bubbleGroupMe,
+          ]}
+        >
           {!isMe && (
             <Text style={[styles.senderName, { color: colors.mutedForeground }]}>
               {item.senderName}
@@ -99,19 +122,31 @@ export default function ChatScreen() {
           <View
             style={[
               styles.bubble,
-              {
-                backgroundColor: isMe ? colors.primary : colors.card,
-                borderRadius: colors.radius,
-                borderBottomRightRadius: isMe ? 4 : colors.radius,
-                borderBottomLeftRadius: isMe ? colors.radius : 4,
-              },
+              isMe
+                ? { backgroundColor: colors.primary, borderBottomRightRadius: 4 }
+                : {
+                    backgroundColor: colors.card,
+                    borderBottomLeftRadius: 4,
+                  },
+              { borderRadius: 18 },
             ]}
           >
-            <Text style={[styles.bubbleText, { color: isMe ? "#fff" : colors.foreground }]}>
+            <Text
+              style={[
+                styles.bubbleText,
+                { color: isMe ? "#FFFFFF" : colors.foreground },
+              ]}
+            >
               {item.text}
             </Text>
           </View>
-          <Text style={[styles.timestamp, { color: colors.mutedForeground }, isMe && { textAlign: "right" }]}>
+          <Text
+            style={[
+              styles.timestamp,
+              { color: colors.mutedForeground },
+              isMe && styles.timestampMe,
+            ]}
+          >
             {formatMessageTime(item.timestamp)}
           </Text>
         </View>
@@ -125,33 +160,38 @@ export default function ChatScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: colors.navy,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0),
+            backgroundColor: colors.background,
+            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 8,
+            borderBottomColor: colors.separator,
           },
         ]}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
-        >
-          <Feather name="arrow-left" size={20} color="#fff" />
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>
-            {familyCount} {familyCount === 1 ? "Family" : "Families"} in Group
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            {familyCount} {familyCount === 1 ? "family" : "families"}
           </Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {groupTrips[0]?.airport} — {groupTrips[0]?.hotel}
+          <Text
+            style={[styles.headerSub, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+          >
+            {firstTrip?.airport} → {firstTrip?.hotel}
           </Text>
         </View>
         <View
           style={[
-            styles.onlineBadge,
-            { backgroundColor: "rgba(255,255,255,0.15)" },
+            styles.onlinePill,
+            { backgroundColor: colors.accentSurface },
           ]}
         >
-          <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
-          <Text style={styles.onlineText}>{familyCount}</Text>
+          <View
+            style={[styles.onlineDot, { backgroundColor: colors.accent }]}
+          />
+          <Text style={[styles.onlineText, { color: colors.accent }]}>
+            {familyCount}
+          </Text>
         </View>
       </View>
 
@@ -163,14 +203,9 @@ export default function ChatScreen() {
         <FlatList
           data={[...messages].reverse()}
           keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
+          renderItem={renderItem}
           inverted
-          contentContainerStyle={[
-            styles.messageList,
-            {
-              paddingBottom: 8,
-            },
-          ]}
+          contentContainerStyle={styles.messageList}
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
@@ -178,49 +213,52 @@ export default function ChatScreen() {
 
         <View
           style={[
-            styles.inputContainer,
+            styles.inputBar,
             {
-              backgroundColor: colors.card,
-              borderTopColor: colors.border,
+              backgroundColor: colors.background,
+              borderTopColor: colors.separator,
               paddingBottom:
-                insets.bottom + (Platform.OS === "web" ? 34 : 0),
+                insets.bottom + (Platform.OS === "web" ? 34 : 0) + 4,
             },
           ]}
         >
-          <TextInput
-            ref={inputRef}
+          <View
             style={[
-              styles.textInput,
-              {
-                backgroundColor: colors.muted,
-                color: colors.foreground,
-                borderRadius: 24,
-                borderColor: colors.border,
-              },
+              styles.inputWrap,
+              { backgroundColor: colors.muted, borderRadius: 24 },
             ]}
-            placeholder="Message..."
-            placeholderTextColor={colors.mutedForeground}
-            value={text}
-            onChangeText={setText}
-            multiline
-            maxLength={500}
-            onSubmitEditing={Platform.OS === "web" ? handleSend : undefined}
-          />
+          >
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.textInput,
+                { color: colors.foreground, fontFamily: "Inter_400Regular" },
+              ]}
+              placeholder="Message..."
+              placeholderTextColor={colors.mutedForeground}
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={500}
+              onSubmitEditing={Platform.OS === "web" ? handleSend : undefined}
+            />
+          </View>
           <Pressable
             onPress={handleSend}
             disabled={!text.trim() || sending}
             style={({ pressed }) => [
               styles.sendBtn,
               {
-                backgroundColor:
-                  text.trim() ? colors.primary : colors.muted,
-                opacity: pressed ? 0.8 : 1,
+                backgroundColor: text.trim()
+                  ? colors.primary
+                  : colors.muted,
+                opacity: pressed ? 0.7 : 1,
               },
             ]}
           >
             <Feather
               name="send"
-              size={18}
+              size={17}
               color={text.trim() ? "#fff" : colors.mutedForeground}
             />
           </Pressable>
@@ -231,74 +269,97 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    letterSpacing: -0.3,
   },
   headerSub: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.7)",
   },
-  onlineBadge: {
+  onlinePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingVertical: 5,
+    borderRadius: 100,
   },
   onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   onlineText: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
-    color: "#fff",
   },
   messageList: {
-    padding: 16,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
     flexGrow: 1,
+  },
+  systemRow: {
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  systemBubble: {
+    maxWidth: "85%",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  systemText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 18,
   },
   msgRow: {
     flexDirection: "row",
-    gap: 10,
     alignItems: "flex-end",
+    gap: 8,
+  },
+  msgRowOther: {
+    justifyContent: "flex-start",
   },
   msgRowMe: {
     flexDirection: "row-reverse",
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 14,
+  avatarLetter: {
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
+  },
+  bubbleGroup: {
+    maxWidth: "75%",
+    gap: 3,
+    alignItems: "flex-start",
+  },
+  bubbleGroupMe: {
+    alignItems: "flex-end",
   },
   senderName: {
     fontSize: 11,
@@ -311,42 +372,34 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
+    lineHeight: 21,
   },
   timestamp: {
     fontSize: 10,
     fontFamily: "Inter_400Regular",
     paddingHorizontal: 4,
   },
-  systemMsg: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginVertical: 4,
+  timestampMe: {
+    textAlign: "right",
   },
-  systemText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  inputContainer: {
+  inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
-    padding: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  textInput: {
+  inputWrap: {
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    justifyContent: "center",
+  },
+  textInput: {
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    borderWidth: 1,
   },
   sendBtn: {
     width: 44,

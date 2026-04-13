@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "@/components/Button";
 import { MatchCard } from "@/components/MatchCard";
 import { useAuth } from "@/context/AuthContext";
 import { useTrip } from "@/context/TripContext";
@@ -22,7 +21,7 @@ export default function MatchesScreen() {
   const insets = useSafeAreaInsets();
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { trips, selectedTournament, getMatches } = useTrip();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
 
   const trip = trips.find((t) => t.id === tripId);
   const matches = useMemo(() => {
@@ -34,7 +33,6 @@ export default function MatchesScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.foreground }}>Trip not found.</Text>
-        <Button title="Go Back" onPress={() => router.back()} />
       </View>
     );
   }
@@ -45,30 +43,31 @@ export default function MatchesScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: colors.navy,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0),
+            backgroundColor: colors.background,
+            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 8,
+            borderBottomColor: colors.separator,
           },
         ]}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
-        >
-          <Feather name="arrow-left" size={20} color="#fff" />
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>
-            {selectedTournament?.name ?? "Matches"}
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            Matches
           </Text>
-          <Text style={styles.headerSub}>
-            {trip.airport} — {trip.mode === "arrival" ? "Arriving" : "Departing"}
+          <Text
+            style={[styles.headerSub, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+          >
+            {selectedTournament?.name}
           </Text>
         </View>
         <Pressable
           onPress={() => router.push("/travel-info")}
-          style={[styles.editBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
+          style={[styles.editBtn, { backgroundColor: colors.muted }]}
         >
-          <Feather name="edit-2" size={16} color="#fff" />
+          <Feather name="edit-2" size={16} color={colors.foreground} />
         </Pressable>
       </View>
 
@@ -76,32 +75,26 @@ export default function MatchesScreen() {
         style={[
           styles.tripSummary,
           {
-            backgroundColor: colors.accent,
-            borderColor: colors.orange,
+            backgroundColor: colors.accentSurface,
+            borderColor: colors.accentBorder,
           },
         ]}
       >
-        <View style={styles.tripRow}>
-          <Feather name="airplay" size={14} color={colors.orange} />
-          <Text style={[styles.tripText, { color: colors.foreground }]}>
-            {trip.airport}
+        <View style={styles.tripPill}>
+          <Text style={[styles.tripPillLabel, { color: colors.mutedForeground }]}>
+            {trip.mode === "arrival" ? "ARRIVING" : "DEPARTING"}
           </Text>
-          <Feather name="arrow-right" size={12} color={colors.mutedForeground} />
-          <Feather name="home" size={14} color={colors.orange} />
-          <Text
-            style={[styles.tripText, { color: colors.foreground }]}
-            numberOfLines={1}
-          >
-            {trip.hotel}
+          <Text style={[styles.tripPillValue, { color: colors.foreground }]}>
+            {trip.airport} → {trip.hotel}
           </Text>
         </View>
-        <View style={styles.tripRow}>
-          <Feather name="clock" size={12} color={colors.mutedForeground} />
-          <Text style={[styles.tripMeta, { color: colors.mutedForeground }]}>
-            {new Date(trip.datetime).toLocaleString("en-US", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
+        <View style={[styles.tripDivider, { backgroundColor: colors.accentBorder }]} />
+        <View style={styles.tripPill}>
+          <Text style={[styles.tripPillLabel, { color: colors.mutedForeground }]}>
+            TIME
+          </Text>
+          <Text style={[styles.tripPillValue, { color: colors.foreground }]}>
+            {new Date(trip.datetime).toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit",
             })}
@@ -112,15 +105,33 @@ export default function MatchesScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20 },
+          {
+            paddingBottom:
+              insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {matches.length > 0 ? (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Matching Families
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {matches.length} group{matches.length > 1 ? "s" : ""} found
+              </Text>
+              <View
+                style={[
+                  styles.liveIndicator,
+                  { backgroundColor: colors.accentSurface },
+                ]}
+              >
+                <View
+                  style={[styles.liveDot, { backgroundColor: colors.accent }]}
+                />
+                <Text style={[styles.liveText, { color: colors.accent }]}>
+                  Live
+                </Text>
+              </View>
+            </View>
             {matches.map((group) => (
               <MatchCard key={group.groupId} group={group} />
             ))}
@@ -128,19 +139,16 @@ export default function MatchesScreen() {
         ) : (
           <View style={styles.emptyState}>
             <View
-              style={[
-                styles.emptyIcon,
-                { backgroundColor: colors.muted },
-              ]}
+              style={[styles.emptyIcon, { backgroundColor: colors.muted }]}
             >
-              <Feather name="users" size={36} color={colors.mutedForeground} />
+              <Feather name="users" size={32} color={colors.mutedForeground} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               No matches yet
             </Text>
             <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-              No other families have entered travel info for this airport, hotel,
-              and time window yet. Check back as more families register!
+              No families have entered the same airport and hotel for this time
+              window. Check back as more families register.
             </Text>
           </View>
         )}
@@ -150,9 +158,7 @@ export default function MatchesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   center: {
     flex: 1,
     alignItems: "center",
@@ -165,64 +171,91 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 12,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.7)",
+    marginTop: 1,
+  },
+  editBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tripSummary: {
-    margin: 16,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 6,
-  },
-  tripRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  tripText: {
-    fontSize: 13,
+  tripPill: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 3,
+  },
+  tripPillLabel: {
+    fontSize: 10,
     fontFamily: "Inter_600SemiBold",
-    flex: 1,
+    letterSpacing: 0.8,
   },
-  tripMeta: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
+  tripPillValue: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  tripDivider: {
+    width: 1,
+    height: "60%",
   },
   scroll: {
-    paddingTop: 8,
+    padding: 16,
     gap: 0,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: "Inter_700Bold",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    letterSpacing: -0.3,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  liveText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   emptyState: {
     alignItems: "center",
@@ -232,9 +265,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
   },

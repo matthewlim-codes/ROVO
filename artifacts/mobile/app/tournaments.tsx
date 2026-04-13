@@ -32,34 +32,34 @@ export default function TournamentsScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: colors.navy,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0),
+            backgroundColor: colors.background,
+            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 8,
+            borderBottomColor: colors.separator,
           },
         ]}
       >
         <View>
-          <Text style={styles.headerGreeting}>
-            Hey, {user?.name?.split(" ")[0]}
+          <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
+            Good to see you, {user?.name?.split(" ")[0]}
           </Text>
-          <Text style={styles.headerTitle}>Select Tournament</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            Tournaments
+          </Text>
         </View>
-        <Pressable
-          onPress={logout}
-          style={[styles.logoutBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
-        >
-          <Feather name="log-out" size={18} color="#fff" />
+        <Pressable onPress={logout} style={styles.logoutBtn}>
+          <Feather name="log-out" size={20} color={colors.mutedForeground} />
         </Pressable>
       </View>
 
       <View
         style={[
-          styles.clubBadge,
-          { backgroundColor: colors.accent, borderColor: colors.orange },
+          styles.clubStrip,
+          { backgroundColor: colors.accentSurface, borderColor: colors.accentBorder },
         ]}
       >
-        <Feather name="shield" size={14} color={colors.orange} />
-        <Text style={[styles.clubBadgeText, { color: colors.orange }]}>
-          {user?.club} — {user?.team}
+        <View style={[styles.clubDot, { backgroundColor: colors.accent }]} />
+        <Text style={[styles.clubText, { color: colors.accent }]}>
+          {user?.club} · {user?.team}
         </Text>
       </View>
 
@@ -68,127 +68,128 @@ export default function TournamentsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.list,
-          { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20 },
+          {
+            paddingBottom:
+              insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20,
+          },
         ]}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => handleSelect(item)}
-            style={({ pressed }) => [
-              styles.card,
-              {
-                backgroundColor: colors.card,
-                borderRadius: colors.radius,
-                opacity: pressed ? 0.9 : 1,
-                shadowColor: colors.navy,
-              },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View
-                style={[
-                  styles.tournamentIcon,
-                  { backgroundColor: colors.accent },
-                ]}
-              >
-                <Feather name="award" size={24} color={colors.orange} />
-              </View>
-              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-            </View>
-
-            <Text style={[styles.tournamentName, { color: colors.foreground }]}>
-              {item.name}
-            </Text>
-
-            <View style={styles.metaRow}>
-              <Feather name="map-pin" size={13} color={colors.mutedForeground} />
-              <Text
-                style={[styles.metaText, { color: colors.mutedForeground }]}
-                numberOfLines={1}
-              >
-                {item.location}
-              </Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Feather name="calendar" size={13} color={colors.mutedForeground} />
-              <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-                {item.dates}
-              </Text>
-            </View>
-
-            <Text
-              style={[styles.description, { color: colors.mutedForeground }]}
-              numberOfLines={2}
-            >
-              {item.description}
-            </Text>
-
-            <View
-              style={[
-                styles.selectBtn,
-                {
-                  backgroundColor: colors.primary,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
-            >
-              <Text
-                style={[styles.selectBtnText, { color: colors.primaryForeground }]}
-              >
-                Select Tournament
-              </Text>
-            </View>
-          </Pressable>
-        )}
+        renderItem={({ item }) => <TournamentCard item={item} onPress={() => handleSelect(item)} />}
       />
     </View>
   );
 }
 
+function TournamentCard({
+  item,
+  onPress,
+}: {
+  item: Tournament;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderRadius: 20,
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
+      ]}
+    >
+      <View style={styles.cardTop}>
+        <View
+          style={[styles.tournamentEmoji, { backgroundColor: colors.muted }]}
+        >
+          <Feather name="award" size={22} color={colors.foreground} />
+        </View>
+        <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+      </View>
+
+      <Text style={[styles.tournamentName, { color: colors.foreground }]}>
+        {item.name}
+      </Text>
+
+      <View style={styles.metaGroup}>
+        <View style={styles.metaRow}>
+          <Feather name="map-pin" size={13} color={colors.mutedForeground} />
+          <Text
+            style={[styles.metaText, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+          >
+            {item.location}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Feather name="calendar" size={13} color={colors.mutedForeground} />
+          <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+            {item.dates}
+          </Text>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.selectPill,
+          { backgroundColor: colors.primary, borderRadius: 100 },
+        ]}
+      >
+        <Text style={[styles.selectPillText, { color: "#fff" }]}>
+          Select tournament
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
   },
-  headerGreeting: {
-    fontSize: 14,
+  greeting: {
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.7)",
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
-    color: "#ffffff",
+    letterSpacing: -0.6,
     marginTop: 2,
   },
   logoutBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  clubBadge: {
+  clubStrip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    alignSelf: "flex-start",
   },
-  clubBadgeText: {
-    fontSize: 12,
+  clubDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  clubText: {
+    fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
   list: {
@@ -197,21 +198,19 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    gap: 10,
+    boxShadow: "0px 2px 10px rgba(0,0,0,0.06)",
+    elevation: 2,
+    gap: 12,
     marginBottom: 12,
   },
-  cardHeader: {
+  cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  tournamentIcon: {
-    width: 48,
-    height: 48,
+  tournamentEmoji: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -219,7 +218,9 @@ const styles = StyleSheet.create({
   tournamentName: {
     fontSize: 20,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
   },
+  metaGroup: { gap: 6 },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -230,19 +231,14 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
   },
-  description: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 19,
-  },
-  selectBtn: {
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
+  selectPill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     marginTop: 4,
   },
-  selectBtnText: {
-    fontSize: 15,
+  selectPillText: {
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
 });

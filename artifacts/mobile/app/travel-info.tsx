@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,121 +30,186 @@ function roundToNearestHalf(date: Date): Date {
   return new Date(Math.ceil(date.getTime() / ms) * ms);
 }
 
-function DateTimePicker({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
+function InlineDatePicker({
+  value,
+  onChange,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+}) {
   const colors = useColors();
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = [0, 15, 30, 45];
-  const days: Date[] = Array.from({ length: 14 }, (_, i) => {
+  const days = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
     d.setHours(0, 0, 0, 0);
     return d;
   });
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = [0, 15, 30, 45];
 
   const selectedDay = new Date(value);
   selectedDay.setHours(0, 0, 0, 0);
-
   const currentHour = value.getHours();
   const currentMinute = Math.round(value.getMinutes() / 15) * 15;
 
   const setDay = (d: Date) => {
-    const newDate = new Date(d);
-    newDate.setHours(currentHour, currentMinute, 0, 0);
-    onChange(newDate);
+    const n = new Date(d);
+    n.setHours(currentHour, currentMinute, 0, 0);
+    onChange(n);
   };
-
   const setHour = (h: number) => {
-    const newDate = new Date(value);
-    newDate.setHours(h);
-    onChange(newDate);
+    const n = new Date(value);
+    n.setHours(h);
+    onChange(n);
   };
-
   const setMinute = (m: number) => {
-    const newDate = new Date(value);
-    newDate.setMinutes(m);
-    onChange(newDate);
+    const n = new Date(value);
+    n.setMinutes(m);
+    onChange(n);
   };
 
   return (
-    <View style={styles.dtPicker}>
-      <Text style={[styles.dtLabel, { color: colors.mutedForeground }]}>Date</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-        <View style={styles.dtRow}>
-          {days.map((d) => {
-            const isSelected = d.toDateString() === selectedDay.toDateString();
+    <View style={{ gap: 14 }}>
+      <View style={{ gap: 8 }}>
+        <Text style={[styles.pickerLabel, { color: colors.mutedForeground }]}>
+          Date
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.chipRow}>
+            {days.map((d) => {
+              const isSelected =
+                d.toDateString() === selectedDay.toDateString();
+              return (
+                <Pressable
+                  key={d.toISOString()}
+                  onPress={() => setDay(d)}
+                  style={[
+                    styles.dateChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : colors.muted,
+                      borderRadius: 12,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateChipDay,
+                      {
+                        color: isSelected
+                          ? "rgba(255,255,255,0.7)"
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {d.toLocaleDateString("en-US", { weekday: "short" })}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dateChipNum,
+                      { color: isSelected ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    {d.getDate()}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dateChipMonth,
+                      {
+                        color: isSelected
+                          ? "rgba(255,255,255,0.7)"
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {d.toLocaleDateString("en-US", { month: "short" })}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <Text style={[styles.pickerLabel, { color: colors.mutedForeground }]}>
+          Hour
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.chipRow}>
+            {hours.map((h) => {
+              const isSelected = h === currentHour;
+              const label =
+                h === 0
+                  ? "12am"
+                  : h < 12
+                    ? `${h}am`
+                    : h === 12
+                      ? "12pm"
+                      : `${h - 12}pm`;
+              return (
+                <Pressable
+                  key={h}
+                  onPress={() => setHour(h)}
+                  style={[
+                    styles.hourChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : colors.muted,
+                      borderRadius: 10,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.hourChipText,
+                      { color: isSelected ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <Text style={[styles.pickerLabel, { color: colors.mutedForeground }]}>
+          Minutes
+        </Text>
+        <View style={styles.chipRow}>
+          {minutes.map((m) => {
+            const isSelected = m === currentMinute;
             return (
               <Pressable
-                key={d.toISOString()}
-                onPress={() => setDay(d)}
+                key={m}
+                onPress={() => setMinute(m)}
                 style={[
-                  styles.dtChip,
+                  styles.minChip,
                   {
-                    backgroundColor: isSelected ? colors.primary : colors.muted,
-                    borderRadius: colors.radius - 4,
+                    backgroundColor: isSelected
+                      ? colors.primary
+                      : colors.muted,
+                    borderRadius: 10,
                   },
                 ]}
               >
-                <Text style={[styles.dtChipDayName, { color: isSelected ? "#fff" : colors.mutedForeground }]}>
-                  {d.toLocaleDateString("en-US", { weekday: "short" })}
-                </Text>
-                <Text style={[styles.dtChipDate, { color: isSelected ? "#fff" : colors.foreground }]}>
-                  {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                <Text
+                  style={[
+                    styles.hourChipText,
+                    { color: isSelected ? "#fff" : colors.foreground },
+                  ]}
+                >
+                  :{m.toString().padStart(2, "0")}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-      </ScrollView>
-
-      <Text style={[styles.dtLabel, { color: colors.mutedForeground }]}>Hour</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-        <View style={styles.dtRow}>
-          {hours.map((h) => {
-            const isSelected = h === currentHour;
-            const label = h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
-            return (
-              <Pressable
-                key={h}
-                onPress={() => setHour(h)}
-                style={[
-                  styles.dtHourChip,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.muted,
-                    borderRadius: 8,
-                  },
-                ]}
-              >
-                <Text style={[styles.dtHourText, { color: isSelected ? "#fff" : colors.foreground }]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-
-      <Text style={[styles.dtLabel, { color: colors.mutedForeground }]}>Minutes</Text>
-      <View style={styles.dtRow}>
-        {minutes.map((m) => {
-          const isSelected = m === currentMinute;
-          return (
-            <Pressable
-              key={m}
-              onPress={() => setMinute(m)}
-              style={[
-                styles.dtMinChip,
-                {
-                  backgroundColor: isSelected ? colors.primary : colors.muted,
-                  borderRadius: 8,
-                },
-              ]}
-            >
-              <Text style={[styles.dtHourText, { color: isSelected ? "#fff" : colors.foreground }]}>
-                :{m.toString().padStart(2, "0")}
-              </Text>
-            </Pressable>
-          );
-        })}
       </View>
     </View>
   );
@@ -173,7 +237,9 @@ export default function TravelInfoScreen() {
   }
 
   const filteredAirports = airport
-    ? AIRPORTS.filter((a) => a.toLowerCase().includes(airport.toLowerCase()))
+    ? AIRPORTS.filter((a) =>
+        a.toLowerCase().includes(airport.toLowerCase())
+      )
     : AIRPORTS;
 
   const handleSubmit = async () => {
@@ -215,20 +281,23 @@ export default function TravelInfoScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: colors.navy,
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0),
+            backgroundColor: colors.background,
+            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 8,
+            borderBottomColor: colors.separator,
           },
         ]}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
-        >
-          <Feather name="arrow-left" size={20} color="#fff" />
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Travel Info</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            Travel details
+          </Text>
+          <Text
+            style={[styles.headerSub, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+          >
             {selectedTournament.name}
           </Text>
         </View>
@@ -241,38 +310,49 @@ export default function TravelInfoScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scroll,
-            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 100 },
+            {
+              paddingBottom:
+                insets.bottom + (Platform.OS === "web" ? 34 : 0) + 100,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              TRAVEL MODE
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+            >
+              Travel mode
             </Text>
-            <View style={styles.modeToggle}>
+            <View style={styles.segmented}>
               {(["arrival", "departure"] as const).map((m) => (
                 <Pressable
                   key={m}
                   onPress={() => setMode(m)}
                   style={[
-                    styles.modeBtn,
+                    styles.segmentBtn,
                     {
-                      backgroundColor: mode === m ? colors.primary : colors.muted,
-                      borderRadius: colors.radius - 4,
+                      backgroundColor:
+                        mode === m ? colors.primary : "transparent",
+                      borderRadius: 10,
                     },
                   ]}
                 >
-                  <Feather
-                    name={m === "arrival" ? "arrow-down-circle" : "arrow-up-circle"}
-                    size={18}
-                    color={mode === m ? colors.primaryForeground : colors.mutedForeground}
-                  />
                   <Text
                     style={[
-                      styles.modeBtnText,
+                      styles.segmentText,
                       {
-                        color: mode === m ? colors.primaryForeground : colors.mutedForeground,
+                        color:
+                          mode === m ? "#fff" : colors.mutedForeground,
+                        fontFamily:
+                          mode === m
+                            ? "Inter_600SemiBold"
+                            : "Inter_400Regular",
                       },
                     ]}
                   >
@@ -283,9 +363,16 @@ export default function TravelInfoScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              AIRPORT
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+            >
+              Airport
             </Text>
             <Input
               placeholder="e.g. DFW, LAX, ORD"
@@ -295,19 +382,26 @@ export default function TravelInfoScreen() {
                 setShowAirports(true);
               }}
               onFocus={() => setShowAirports(true)}
-              onBlur={() => setTimeout(() => setShowAirports(false), 150)}
+              onBlur={() =>
+                setTimeout(() => setShowAirports(false), 150)
+              }
               autoCapitalize="characters"
               autoCorrect={false}
-              leftIcon={<Feather name="airplay" size={18} color={colors.mutedForeground} />}
+              leftIcon={
+                <Feather
+                  name="airplay"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              }
             />
             {showAirports && filteredAirports.length > 0 && (
               <View
                 style={[
                   styles.dropdown,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderRadius: colors.radius - 4,
+                    backgroundColor: colors.muted,
+                    borderRadius: 12,
                   },
                 ]}
               >
@@ -318,10 +412,17 @@ export default function TravelInfoScreen() {
                       setAirport(a);
                       setShowAirports(false);
                     }}
-                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                    style={[
+                      styles.dropdownItem,
+                      { borderBottomColor: colors.separator },
+                    ]}
                   >
-                    <Feather name="airplay" size={14} color={colors.orange} />
-                    <Text style={[styles.dropdownText, { color: colors.foreground }]}>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        { color: colors.foreground },
+                      ]}
+                    >
                       {a}
                     </Text>
                   </Pressable>
@@ -330,39 +431,55 @@ export default function TravelInfoScreen() {
             )}
           </View>
 
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              {mode === "arrival" ? "ARRIVAL" : "DEPARTURE"} DATE & TIME
-            </Text>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
             <Pressable
               onPress={() => setShowDatePicker(!showDatePicker)}
-              style={[
-                styles.dateBtn,
-                {
-                  backgroundColor: colors.muted,
-                  borderRadius: colors.radius - 4,
-                  borderColor: colors.border,
-                },
-              ]}
+              style={styles.dateRow}
             >
-              <Feather name="clock" size={18} color={colors.orange} />
-              <Text style={[styles.dateBtnText, { color: colors.foreground }]}>
-                {formatDateTime(datetime.toISOString())}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.sectionLabel,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {mode === "arrival" ? "Arrival" : "Departure"} time
+                </Text>
+                <Text
+                  style={[styles.dateValue, { color: colors.foreground }]}
+                >
+                  {formatDateTime(datetime.toISOString())}
+                </Text>
+              </View>
               <Feather
                 name={showDatePicker ? "chevron-up" : "chevron-down"}
-                size={16}
+                size={20}
                 color={colors.mutedForeground}
               />
             </Pressable>
             {showDatePicker && (
-              <DateTimePicker value={datetime} onChange={setDatetime} />
+              <InlineDatePicker
+                value={datetime}
+                onChange={setDatetime}
+              />
             )}
           </View>
 
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              HOTEL
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+            >
+              Hotel
             </Text>
             <HotelSearch
               tournamentLocation={selectedTournament.location}
@@ -371,16 +488,29 @@ export default function TravelInfoScreen() {
             />
           </View>
 
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              BAGS (optional)
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+            >
+              Bags (optional)
             </Text>
             <Input
-              placeholder="Number of bags"
+              placeholder="How many bags?"
               value={baggage}
               onChangeText={setBaggage}
               keyboardType="number-pad"
-              leftIcon={<Feather name="shopping-bag" size={18} color={colors.mutedForeground} />}
+              leftIcon={
+                <Feather
+                  name="shopping-bag"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              }
             />
           </View>
 
@@ -388,21 +518,24 @@ export default function TravelInfoScreen() {
             <View
               style={[
                 styles.errorBox,
-                {
-                  backgroundColor: "#fef2f2",
-                  borderRadius: colors.radius - 4,
-                },
+                { backgroundColor: "#FEF2F2", borderRadius: 14 },
               ]}
             >
-              <Feather name="alert-circle" size={14} color={colors.destructive} />
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
+              <Feather
+                name="alert-circle"
+                size={14}
+                color={colors.destructive}
+              />
+              <Text
+                style={[styles.errorText, { color: colors.destructive }]}
+              >
                 {error}
               </Text>
             </View>
           ) : null}
 
           <Button
-            title="Find Matching Families"
+            title="Find matching families"
             onPress={handleSubmit}
             loading={loading}
             size="lg"
@@ -418,140 +551,128 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 12,
+    gap: 4,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.7)",
+    marginTop: 1,
   },
   scroll: { padding: 16, gap: 12 },
   section: {
     padding: 20,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    gap: 14,
+    boxShadow: "0px 1px 6px rgba(0,0,0,0.04)",
     elevation: 1,
-    marginBottom: 0,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
   },
-  modeToggle: {
+  segmented: {
     flexDirection: "row",
-    gap: 8,
+    backgroundColor: "#F0F0F0",
+    borderRadius: 12,
+    padding: 4,
+    gap: 2,
   },
-  modeBtn: {
+  segmentBtn: {
     flex: 1,
-    flexDirection: "row",
+    paddingVertical: 12,
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
   },
-  modeBtnText: {
+  segmentText: {
     fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
   },
   dropdown: {
-    borderWidth: 1.5,
-    marginTop: 4,
     overflow: "hidden",
+    marginTop: 4,
   },
   dropdownItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    borderBottomWidth: 1,
+    padding: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dropdownText: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
-  dateBtn: {
+  dateRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    padding: 14,
-    borderWidth: 1.5,
+    justifyContent: "space-between",
   },
-  dateBtnText: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  dtPicker: {
-    paddingTop: 8,
-    gap: 4,
-  },
-  dtLabel: {
-    fontSize: 11,
+  dateValue: {
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    marginTop: 4,
+    letterSpacing: -0.2,
   },
-  dtRow: {
+  pickerLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.3,
+  },
+  chipRow: {
     flexDirection: "row",
-    flexWrap: "nowrap",
     gap: 6,
   },
-  dtChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  dateChip: {
+    width: 58,
     alignItems: "center",
-    minWidth: 64,
+    paddingVertical: 10,
+    gap: 2,
   },
-  dtChipDayName: {
-    fontSize: 11,
+  dateChipDay: {
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
   },
-  dtChipDate: {
-    fontSize: 13,
+  dateChipNum: {
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
   },
-  dtHourChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minWidth: 52,
+  dateChipMonth: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+  },
+  hourChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    minWidth: 54,
     alignItems: "center",
   },
-  dtHourText: {
-    fontSize: 13,
+  hourChipText: {
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
-  dtMinChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  minChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 9,
     alignItems: "center",
   },
   errorBox: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    padding: 12,
+    padding: 14,
   },
   errorText: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     flex: 1,
+    lineHeight: 18,
   },
 });
