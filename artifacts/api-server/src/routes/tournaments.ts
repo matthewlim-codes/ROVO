@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, insertTournamentSchema } from "@workspace/db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
+import { requireAdminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.get("/tournaments", async (req, res) => {
   }
 });
 
-router.post("/tournaments", async (req, res) => {
+router.post("/tournaments", requireAdminAuth, async (req, res) => {
   const parsed = insertTournamentSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
@@ -45,7 +46,7 @@ router.post("/tournaments", async (req, res) => {
   }
 });
 
-router.put("/tournaments/:id", async (req, res) => {
+router.put("/tournaments/:id", requireAdminAuth, async (req, res) => {
   const parsed = insertTournamentSchema.partial().safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
@@ -54,7 +55,7 @@ router.put("/tournaments/:id", async (req, res) => {
     const [tournament] = await db
       .update(tournamentsTable)
       .set(parsed.data)
-      .where(eq(tournamentsTable.id, req.params.id))
+      .where(eq(tournamentsTable.id, req.params.id as string))
       .returning();
     if (!tournament)
       return res.status(404).json({ error: "Tournament not found" });
@@ -64,11 +65,11 @@ router.put("/tournaments/:id", async (req, res) => {
   }
 });
 
-router.delete("/tournaments/:id", async (req, res) => {
+router.delete("/tournaments/:id", requireAdminAuth, async (req, res) => {
   try {
     await db
       .delete(tournamentsTable)
-      .where(eq(tournamentsTable.id, req.params.id));
+      .where(eq(tournamentsTable.id, req.params.id as string));
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "Failed to delete tournament" });

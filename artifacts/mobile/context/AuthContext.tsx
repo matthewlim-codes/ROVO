@@ -30,6 +30,16 @@ export interface User {
   team: string;
   clubCodeEntered: boolean;
   avatarUri?: string;
+  isAdmin?: boolean;
+}
+
+function isAdminEmail(email: string): boolean {
+  const raw = process.env.EXPO_PUBLIC_ADMIN_EMAILS ?? "";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(email.toLowerCase());
 }
 
 interface AuthContextType {
@@ -65,8 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (sessionId) {
         const usersRaw = await AsyncStorage.getItem(USERS_KEY);
         const users: User[] = usersRaw ? JSON.parse(usersRaw) : [];
-        const found = users.find((u) => u.id === sessionId);
-        if (found) setUser(found);
+        const idx = users.findIndex((u) => u.id === sessionId);
+        if (idx !== -1) {
+          const desiredAdmin = isAdminEmail(users[idx].email);
+          if (!!users[idx].isAdmin !== desiredAdmin) {
+            users[idx] = { ...users[idx], isAdmin: desiredAdmin };
+            await saveUsers(users);
+          }
+          setUser(users[idx]);
+        }
       }
     } catch {
     } finally {
@@ -85,12 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, _password: string) => {
     const users = await getUsers();
-    const found = users.find(
+    const idx = users.findIndex(
       (u) => u.email.toLowerCase() === email.toLowerCase()
     );
-    if (!found) throw new Error("No account found with this email.");
-    await AsyncStorage.setItem(SESSION_KEY, found.id);
-    setUser(found);
+    if (idx === -1) throw new Error("No account found with this email.");
+    const desiredAdmin = isAdminEmail(users[idx].email);
+    if (!!users[idx].isAdmin !== desiredAdmin) {
+      users[idx] = { ...users[idx], isAdmin: desiredAdmin };
+      await saveUsers(users);
+    }
+    await AsyncStorage.setItem(SESSION_KEY, users[idx].id);
+    setUser(users[idx]);
   }, []);
 
   const register = useCallback(
@@ -107,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         club: "",
         team: "",
         clubCodeEntered: false,
+        isAdmin: isAdminEmail(email),
       };
       users.push(newUser);
       await saveUsers(users);
@@ -175,14 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         if (conflict) throw new Error("That email is already in use.");
       }
+      const newEmail = updates.email?.trim() || users[idx].email;
       const updated: User = {
         ...users[idx],
         name: updates.name?.trim() || users[idx].name,
-        email: updates.email?.trim() || users[idx].email,
+        email: newEmail,
         avatarUri:
           updates.avatarUri === null
             ? undefined
             : updates.avatarUri ?? users[idx].avatarUri,
+        isAdmin: isAdminEmail(newEmail),
       };
       users[idx] = updated;
       await saveUsers(users);

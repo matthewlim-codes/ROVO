@@ -2,10 +2,11 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { clubCodesTable, clubsTable, insertClubCodeSchema } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAdminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
-router.get("/club-codes", async (req, res) => {
+router.get("/club-codes", requireAdminAuth, async (req, res) => {
   try {
     const codes = await db
       .select({
@@ -46,7 +47,7 @@ router.get("/club-codes/verify/:code", async (req, res) => {
   }
 });
 
-router.post("/club-codes", async (req, res) => {
+router.post("/club-codes", requireAdminAuth, async (req, res) => {
   const parsed = insertClubCodeSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
@@ -66,7 +67,7 @@ router.post("/club-codes", async (req, res) => {
   }
 });
 
-router.put("/club-codes/:id", async (req, res) => {
+router.put("/club-codes/:id", requireAdminAuth, async (req, res) => {
   const parsed = insertClubCodeSchema.partial().safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
@@ -75,7 +76,7 @@ router.put("/club-codes/:id", async (req, res) => {
     const [code] = await db
       .update(clubCodesTable)
       .set(parsed.data)
-      .where(eq(clubCodesTable.id, req.params.id))
+      .where(eq(clubCodesTable.id, req.params.id as string))
       .returning();
     if (!code) return res.status(404).json({ error: "Code not found" });
     res.json(code);
@@ -84,9 +85,9 @@ router.put("/club-codes/:id", async (req, res) => {
   }
 });
 
-router.delete("/club-codes/:id", async (req, res) => {
+router.delete("/club-codes/:id", requireAdminAuth, async (req, res) => {
   try {
-    await db.delete(clubCodesTable).where(eq(clubCodesTable.id, req.params.id));
+    await db.delete(clubCodesTable).where(eq(clubCodesTable.id, req.params.id as string));
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "Failed to delete club code" });

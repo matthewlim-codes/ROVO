@@ -1,10 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import {
-  clubsTable,
-  clubCodesTable,
-  tournamentsTable,
-} from "@workspace/db/schema";
+import { requireAdminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
@@ -336,7 +331,7 @@ loadAll();
 </body>
 </html>`;
 
-router.get("/admin", (req, res) => {
+router.get("/admin", requireAdminAuth, (_req, res) => {
   res.setHeader("Content-Type", "text/html");
   res.send(ADMIN_HTML);
 });

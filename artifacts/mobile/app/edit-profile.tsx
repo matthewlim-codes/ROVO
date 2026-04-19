@@ -268,7 +268,7 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* TODO: gate this on an admin role once roles exist. */}
+        {user?.isAdmin ? (
         <Pressable
           onPress={async () => {
             const url = getAdminUrl();
@@ -318,6 +318,7 @@ export default function EditProfileScreen() {
             color={colors.mutedForeground}
           />
         </Pressable>
+        ) : null}
 
         {error ? (
           <Text style={[styles.error, { color: "#dc2626" }]}>{error}</Text>
