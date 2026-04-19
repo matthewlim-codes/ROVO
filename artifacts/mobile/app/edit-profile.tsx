@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { getAdminUrl } from "@/utils/api";
 
 export default function EditProfileScreen() {
   const colors = useColors();
@@ -266,6 +268,57 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
+        {/* TODO: gate this on an admin role once roles exist. */}
+        <Pressable
+          onPress={async () => {
+            const url = getAdminUrl();
+            try {
+              await Linking.openURL(url);
+            } catch {
+              Alert.alert("Could not open admin page", url);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.adminRow,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.separator,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.adminIcon,
+              { backgroundColor: colors.muted },
+            ]}
+          >
+            <Feather
+              name="external-link"
+              size={16}
+              color={colors.foreground}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.adminTitle, { color: colors.foreground }]}>
+              Manage club codes
+            </Text>
+            <Text
+              style={[
+                styles.adminSub,
+                { color: colors.mutedForeground },
+              ]}
+            >
+              Opens the admin page in your browser
+            </Text>
+          </View>
+          <Feather
+            name="chevron-right"
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </Pressable>
+
         {error ? (
           <Text style={[styles.error, { color: "#dc2626" }]}>{error}</Text>
         ) : null}
@@ -381,6 +434,32 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   readonly: { gap: 2 },
+  adminRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  adminIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adminTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  adminSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
   error: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",

@@ -1,6 +1,16 @@
 const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 export const API_BASE = domain ? `https://${domain}/api` : "/api";
 
+export function getAdminUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_ADMIN_URL;
+  if (explicit) return explicit;
+  if (domain) return `https://${domain}/admin`;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/admin`;
+  }
+  return "/admin";
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
