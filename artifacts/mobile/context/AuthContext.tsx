@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { apiFetch } from "../utils/api";
 
 export interface User {
   id: string;
@@ -35,14 +36,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const USERS_KEY = "rsg_users";
 const SESSION_KEY = "rsg_session";
-
-const CLUB_CODES: Record<string, { club: string; team: string }> = {
-  "GOLD2024": { club: "Gold Volleyball Club", team: "16 Gold" },
-  "STORM24": { club: "Storm Elite", team: "18 Storm" },
-  "VBALL25": { club: "Valley Volleyball", team: "15 Blue" },
-  "ELITE25": { club: "Elite Sports Club", team: "17 Elite" },
-  "FURY2025": { club: "Fury Volleyball", team: "16 Fury" },
-};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -117,15 +110,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const enterClubCode = useCallback(
     async (code: string) => {
       if (!user) return;
-      const clubInfo = CLUB_CODES[code];
-      if (!clubInfo) throw new Error("invalid");
+      let clubInfo: { clubName: string | null; teamName: string };
+      try {
+        clubInfo = await apiFetch<{
+          code: string;
+          teamName: string;
+          clubId: string;
+          clubName: string | null;
+        }>(`/club-codes/verify/${encodeURIComponent(code)}`);
+      } catch {
+        throw new Error("invalid");
+      }
       const users = await getUsers();
       const idx = users.findIndex((u) => u.id === user.id);
       if (idx === -1) return;
       const updated: User = {
         ...users[idx],
-        club: clubInfo.club,
-        team: clubInfo.team,
+        club: clubInfo.clubName ?? "",
+        team: clubInfo.teamName,
         clubCodeEntered: true,
       };
       users[idx] = updated;
