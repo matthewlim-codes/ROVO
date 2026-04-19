@@ -2,8 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -16,15 +17,42 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
-import { Tournament, useTrip } from "@/context/TripContext";
+import {
+  Tournament,
+  TournamentGender,
+  useTrip,
+} from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
+
+type GenderFilter = "all" | TournamentGender;
+
+const GENDER_TABS: { key: GenderFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "girls", label: "Girls" },
+  { key: "boys", label: "Boys" },
+];
 
 export default function TournamentsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { tournaments, setSelectedTournament, setTournamentImage } = useTrip();
+  const {
+    tournaments,
+    tournamentsLoading,
+    tournamentsError,
+    refreshTournaments,
+    setSelectedTournament,
+    setTournamentImage,
+  } = useTrip();
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
+
+  const filteredTournaments = useMemo(() => {
+    if (genderFilter === "all") return tournaments;
+    return tournaments.filter(
+      (t) => t.gender === genderFilter || t.gender === "coed"
+    );
+  }, [tournaments, genderFilter]);
 
   const handleSelect = (t: Tournament) => {
     setSelectedTournament(t);
@@ -143,8 +171,36 @@ export default function TournamentsScreen() {
         </Text>
       </View>
 
+      <View style={styles.filterRow}>
+        {GENDER_TABS.map((tab) => {
+          const active = genderFilter === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setGenderFilter(tab.key)}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: active ? colors.primary : colors.muted,
+                  borderColor: active ? colors.primary : colors.separator,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: active ? "#fff" : colors.foreground },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <FlatList
-        data={tournaments}
+        data={filteredTournaments}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.list,
@@ -161,6 +217,52 @@ export default function TournamentsScreen() {
             onPickImage={() => handlePickImage(item.id)}
           />
         )}
+        refreshing={tournamentsLoading}
+        onRefresh={refreshTournaments}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            {tournamentsLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : tournamentsError ? (
+              <>
+                <Feather
+                  name="alert-circle"
+                  size={28}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[styles.emptyText, { color: colors.mutedForeground }]}
+                >
+                  {tournamentsError}
+                </Text>
+                <Pressable
+                  onPress={refreshTournaments}
+                  style={[
+                    styles.emptyRetry,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text style={styles.emptyRetryText}>Try again</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Feather
+                  name="calendar"
+                  size={28}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[styles.emptyText, { color: colors.mutedForeground }]}
+                >
+                  {genderFilter === "all"
+                    ? "No upcoming tournaments yet."
+                    : `No upcoming ${genderFilter} tournaments.`}
+                </Text>
+              </>
+            )}
+          </View>
+        }
       />
 
       <Modal
@@ -296,9 +398,15 @@ function TournamentCard({
           />
         </View>
 
-        <Text style={[styles.tournamentName, { color: colors.foreground }]}>
-          {item.name}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text
+            style={[styles.tournamentName, { color: colors.foreground }]}
+            numberOfLines={2}
+          >
+            {item.name}
+          </Text>
+          <GenderBadge gender={item.gender} />
+        </View>
 
         <View style={styles.metaGroup}>
           <View style={styles.metaRow}>
@@ -528,4 +636,95 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+  },
+  emptyRetry: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 100,
+    marginTop: 6,
+  },
+  emptyRetryText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  genderBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  genderBadgeText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.6,
+  },
 });
+
+function GenderBadge({ gender }: { gender: TournamentGender }) {
+  const colors = useColors();
+  const palette: Record<
+    TournamentGender,
+    { bg: string; border: string; fg: string; label: string }
+  > = {
+    girls: {
+      bg: "#FDF2F8",
+      border: "#FBCFE8",
+      fg: "#BE185D",
+      label: "GIRLS",
+    },
+    boys: {
+      bg: "#EFF6FF",
+      border: "#BFDBFE",
+      fg: "#1D4ED8",
+      label: "BOYS",
+    },
+    coed: {
+      bg: colors.muted,
+      border: colors.separator,
+      fg: colors.foreground,
+      label: "COED",
+    },
+  };
+  const p = palette[gender];
+  return (
+    <View
+      style={[styles.genderBadge, { backgroundColor: p.bg, borderColor: p.border }]}
+    >
+      <Text style={[styles.genderBadgeText, { color: p.fg }]}>{p.label}</Text>
+    </View>
+  );
+}

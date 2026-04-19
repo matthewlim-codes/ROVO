@@ -7,11 +7,18 @@ import React, {
   useState,
 } from "react";
 
+import { apiFetch } from "@/utils/api";
+
+export type TournamentGender = "boys" | "girls" | "coed";
+
 export interface Tournament {
   id: string;
   name: string;
   location: string;
   dates: string;
+  startDate: string;
+  endDate: string;
+  gender: TournamentGender;
   description: string;
   imageUri?: string;
 }
@@ -41,6 +48,9 @@ export interface ChatMessage {
 
 interface TripContextType {
   tournaments: Tournament[];
+  tournamentsLoading: boolean;
+  tournamentsError: string | null;
+  refreshTournaments: () => Promise<void>;
   trips: Trip[];
   messages: Record<string, ChatMessage[]>;
   selectedTournament: Tournament | null;
@@ -70,40 +80,6 @@ const TRIPS_KEY = "rsg_trips";
 const MESSAGES_KEY = "rsg_messages";
 const TOURNAMENT_IMAGES_KEY = "rsg_tournament_images";
 
-const DEMO_TOURNAMENTS: Tournament[] = [
-  {
-    id: "t1",
-    name: "Lone Star Classic",
-    location: "Dallas Convention Center, Dallas, TX",
-    dates: "Apr 19–20, 2026",
-    description:
-      "One of the largest club volleyball tournaments in Texas. 400+ teams competing across all age groups.",
-  },
-  {
-    id: "t2",
-    name: "SCVA Kickoff Classic",
-    location: "Anaheim Convention Center, Anaheim, CA",
-    dates: "May 3–4, 2026",
-    description:
-      "Premier Southern California tournament welcoming teams from across the western region.",
-  },
-  {
-    id: "t3",
-    name: "Midwest Qualifier",
-    location: "McCormick Place, Chicago, IL",
-    dates: "May 17–18, 2026",
-    description:
-      "National qualifier event for junior teams competing for berths at USAV Nationals.",
-  },
-  {
-    id: "t4",
-    name: "AAU Volleyball Nationals",
-    location: "Orange County Convention Center, Orlando, FL",
-    dates: "Jun 21–25, 2026",
-    description:
-      "The biggest junior volleyball event of the summer season. Thousands of teams from all 50 states.",
-  },
-];
 
 const DEMO_TRIPS: Trip[] = [
   {
@@ -214,10 +190,29 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   >({});
   const [selectedTournament, setSelectedTournament] =
     useState<Tournament | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournamentsLoading, setTournamentsLoading] = useState(true);
+  const [tournamentsError, setTournamentsError] = useState<string | null>(null);
+
+  const refreshTournaments = useCallback(async () => {
+    setTournamentsLoading(true);
+    setTournamentsError(null);
+    try {
+      const data = await apiFetch<Tournament[]>("/tournaments");
+      setTournaments(data);
+    } catch (e) {
+      setTournamentsError(
+        e instanceof Error ? e.message : "Failed to load tournaments"
+      );
+    } finally {
+      setTournamentsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+    refreshTournaments();
+  }, [refreshTournaments]);
 
   const loadData = async () => {
     try {
@@ -242,7 +237,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const tournamentsWithImages: Tournament[] = DEMO_TOURNAMENTS.map((t) => ({
+  const tournamentsWithImages: Tournament[] = tournaments.map((t) => ({
     ...t,
     imageUri: tournamentImages[t.id] ?? t.imageUri,
   }));
@@ -323,6 +318,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     <TripContext.Provider
       value={{
         tournaments: tournamentsWithImages,
+        tournamentsLoading,
+        tournamentsError,
+        refreshTournaments,
         trips,
         messages,
         selectedTournament,

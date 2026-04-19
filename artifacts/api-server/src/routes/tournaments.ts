@@ -1,16 +1,28 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, insertTournamentSchema } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/tournaments", async (req, res) => {
   try {
+    const gender = typeof req.query.gender === "string" ? req.query.gender : undefined;
+    const includePast = req.query.includePast === "true";
+
+    const conditions = [];
+    if (!includePast) {
+      conditions.push(gte(tournamentsTable.endDate, sql`CURRENT_DATE`));
+    }
+    if (gender === "boys" || gender === "girls" || gender === "coed") {
+      conditions.push(eq(tournamentsTable.gender, gender));
+    }
+
     const tournaments = await db
       .select()
       .from(tournamentsTable)
-      .orderBy(tournamentsTable.name);
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(tournamentsTable.startDate);
     res.json(tournaments);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch tournaments" });

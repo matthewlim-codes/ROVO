@@ -122,8 +122,8 @@ const ADMIN_HTML = `<!DOCTYPE html>
         <button class="btn btn-primary" onclick="openModal('tournament')">+ Add Tournament</button>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Location</th><th>Dates</th><th>Actions</th></tr></thead>
-        <tbody id="tournaments-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+        <thead><tr><th>Name</th><th>Location</th><th>Dates</th><th>Gender</th><th>Actions</th></tr></thead>
+        <tbody id="tournaments-table-body"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -180,7 +180,7 @@ async function loadAll() {
   [clubs, codes, tournaments] = await Promise.all([
     api('GET', '/clubs'),
     api('GET', '/club-codes'),
-    api('GET', '/tournaments'),
+    api('GET', '/tournaments?includePast=true'),
   ]);
   renderClubs(); renderCodes(); renderTournaments();
 }
@@ -215,11 +215,12 @@ function renderCodes() {
 
 function renderTournaments() {
   const tb = document.getElementById('tournaments-table-body');
-  if (!tournaments.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No tournaments yet.</td></tr>'; return; }
+  if (!tournaments.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No tournaments yet.</td></tr>'; return; }
   tb.innerHTML = tournaments.map(t => \`<tr>
     <td>\${esc(t.name)}</td>
     <td>\${esc(t.location)}</td>
-    <td>\${esc(t.dates)}</td>
+    <td>\${esc(t.dates)}<div style="font-size:11px;color:var(--muted);margin-top:2px">\${esc(t.startDate || '')} → \${esc(t.endDate || '')}</div></td>
+    <td><span class="badge" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE">\${esc((t.gender||'coed').toUpperCase())}</span></td>
     <td><div class="actions">
       <button class="btn btn-ghost btn-sm" onclick="editTournament('\${t.id}')">Edit</button>
       <button class="btn btn-danger btn-sm" onclick="deleteItem('tournament','\${t.id}')">Delete</button>
@@ -258,7 +259,16 @@ function openModal(type, data = null) {
       <div class="form-row"><div><label>Name *</label><input id="f-name" value="\${esc(data?.name||'')}"></div></div>
       <div class="form-row cols-2">
         <div><label>Location *</label><input id="f-location" placeholder="e.g. Dallas, TX" value="\${esc(data?.location||'')}"></div>
-        <div><label>Dates *</label><input id="f-dates" placeholder="e.g. Jan 10-12, 2026" value="\${esc(data?.dates||'')}"></div>
+        <div><label>Display Dates *</label><input id="f-dates" placeholder="e.g. Jan 10–12, 2026" value="\${esc(data?.dates||'')}"></div>
+      </div>
+      <div class="form-row cols-3">
+        <div><label>Start Date *</label><input id="f-start-date" type="date" value="\${esc(data?.startDate||'')}"></div>
+        <div><label>End Date *</label><input id="f-end-date" type="date" value="\${esc(data?.endDate||'')}"></div>
+        <div><label>Gender *</label><select id="f-gender">
+          <option value="girls" \${(data?.gender||'coed')==='girls'?'selected':''}>Girls</option>
+          <option value="boys" \${(data?.gender||'coed')==='boys'?'selected':''}>Boys</option>
+          <option value="coed" \${(data?.gender||'coed')==='coed'?'selected':''}>Coed</option>
+        </select></div>
       </div>
       <div class="form-row"><div><label>Description</label><textarea id="f-description" rows="2">\${esc(data?.description||'')}</textarea></div></div>\`;
   }
@@ -285,7 +295,15 @@ async function saveModal() {
       path = editingId ? '/club-codes/' + editingId : '/club-codes';
       method = editingId ? 'PUT' : 'POST';
     } else if (editingType === 'tournament') {
-      payload = { name: v('f-name'), location: v('f-location'), dates: v('f-dates'), description: v('f-description')||null };
+      payload = {
+        name: v('f-name'),
+        location: v('f-location'),
+        dates: v('f-dates'),
+        startDate: v('f-start-date'),
+        endDate: v('f-end-date'),
+        gender: v('f-gender') || 'coed',
+        description: v('f-description')||null,
+      };
       path = editingId ? '/tournaments/' + editingId : '/tournaments';
       method = editingId ? 'PUT' : 'POST';
     }

@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,11 @@ export const tournamentsTable = pgTable("tournaments", {
   name: text("name").notNull(),
   location: text("location").notNull(),
   dates: text("dates").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  gender: text("gender", { enum: ["boys", "girls", "coed"] })
+    .notNull()
+    .default("coed"),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -19,3 +24,4 @@ export const selectTournamentSchema = createSelectSchema(tournamentsTable);
 
 export type Tournament = typeof tournamentsTable.$inferSelect;
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
+export type TournamentGender = "boys" | "girls" | "coed";
