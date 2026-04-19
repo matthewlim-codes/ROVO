@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ReadySetGo",
-    "slug": "mobile",
+    "name": "Rovo",
+    "slug": "rovo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "rovo",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -14,11 +14,14 @@
       "backgroundColor": "#1e3a5f"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rovo.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.rovo.app"
+    },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
