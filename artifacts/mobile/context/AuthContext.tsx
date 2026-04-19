@@ -6,7 +6,21 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { apiFetch } from "../utils/api";
+import { ApiError, NetworkError, apiFetch } from "../utils/api";
+
+export class InvalidClubCodeError extends Error {
+  constructor() {
+    super("Invalid club code");
+    this.name = "InvalidClubCodeError";
+  }
+}
+
+export class ClubCodeNetworkError extends Error {
+  constructor() {
+    super("Club code verification network error");
+    this.name = "ClubCodeNetworkError";
+  }
+}
 
 export interface User {
   id: string;
@@ -118,8 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clubId: string;
           clubName: string | null;
         }>(`/club-codes/verify/${encodeURIComponent(code)}`);
-      } catch {
-        throw new Error("invalid");
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          throw new InvalidClubCodeError();
+        }
+        if (err instanceof NetworkError) {
+          throw new ClubCodeNetworkError();
+        }
+        throw new ClubCodeNetworkError();
       }
       const users = await getUsers();
       const idx = users.findIndex((u) => u.id === user.id);

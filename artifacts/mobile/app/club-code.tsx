@@ -12,7 +12,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { useAuth } from "@/context/AuthContext";
+import {
+  ClubCodeNetworkError,
+  InvalidClubCodeError,
+  useAuth,
+} from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function ClubCodeScreen() {
@@ -33,10 +37,18 @@ export default function ClubCodeScreen() {
     try {
       await enterClubCode(code.trim());
       router.replace("/tournaments");
-    } catch {
-      setError(
-        "Code is case sensitive. Please check with your club director to confirm your team has access."
-      );
+    } catch (err) {
+      if (err instanceof InvalidClubCodeError) {
+        setError(
+          "We couldn't find that club code. Codes are case sensitive — ask your coach for the latest code and try again."
+        );
+      } else if (err instanceof ClubCodeNetworkError) {
+        setError(
+          "We couldn't reach the server to verify your code. Check your connection and try again in a moment."
+        );
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
