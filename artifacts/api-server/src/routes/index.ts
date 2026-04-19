@@ -10,6 +10,7 @@ import tripsRouter from "./trips";
 import watchesRouter from "./watches";
 import pushTokensRouter from "./pushTokens";
 import notificationsRouter from "./notifications";
+import profileRouter from "./profile";
 
 const router: IRouter = Router();
 
@@ -23,6 +24,7 @@ router.use(tripsRouter);
 router.use(watchesRouter);
 router.use(pushTokensRouter);
 router.use(notificationsRouter);
+router.use(profileRouter);
 router.use(adminRouter);
 
 export default router;

@@ -1,18 +1,35 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { feedbackTable, insertFeedbackSchema } from "@workspace/db/schema";
+import { feedbackTable } from "@workspace/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { z } from "zod/v4";
 import { requireAdminAuth } from "../middlewares/adminAuth";
+import { requireAuth, getUserId } from "../middlewares/requireAuth";
+import { getOrCreateProfile } from "../lib/profile";
 
 const router = Router();
 
-router.post("/feedback", async (req, res) => {
-  const parsed = insertFeedbackSchema.safeParse(req.body);
+const body = z.object({
+  message: z.string().min(1).max(5000),
+});
+
+router.post("/feedback", requireAuth, async (req, res) => {
+  const parsed = body.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
   }
   try {
-    const [row] = await db.insert(feedbackTable).values(parsed.data).returning();
+    const userId = getUserId(req);
+    const profile = await getOrCreateProfile(userId);
+    const [row] = await db
+      .insert(feedbackTable)
+      .values({
+        userId,
+        userName: profile?.name ?? null,
+        userEmail: profile?.email ?? null,
+        message: parsed.data.message,
+      })
+      .returning();
     res.status(201).json(row);
   } catch (e) {
     res.status(500).json({ error: "Failed to save feedback" });

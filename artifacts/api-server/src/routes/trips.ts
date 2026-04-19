@@ -2,16 +2,28 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   tripsTable,
-  insertTripSchema,
   rideWatchesTable,
   notificationsTable,
 } from "@workspace/db/schema";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod/v4";
 import { sendPushToUsers } from "../lib/push";
+import { requireAuth, getUserId } from "../middlewares/requireAuth";
+import { getOrCreateProfile } from "../lib/profile";
 
 const router = Router();
 
 const FORTY_FIVE_MIN_MS = 45 * 60 * 1000;
+
+const createTripBody = z.object({
+  tournamentId: z.string().uuid(),
+  airport: z.string().min(1),
+  hotel: z.string().min(1),
+  hotelPlaceId: z.string().nullable().optional(),
+  datetime: z.string().transform((s) => new Date(s)),
+  mode: z.enum(["arrival", "departure"]),
+  baggageCount: z.number().int().nullable().optional(),
+});
 
 router.get("/trips", async (req, res) => {
   const tournamentId =
@@ -27,24 +39,41 @@ router.get("/trips", async (req, res) => {
   }
 });
 
-router.post("/trips", async (req, res) => {
-  const parsed = insertTripSchema.safeParse(req.body);
+router.post("/trips", requireAuth, async (req, res) => {
+  const parsed = createTripBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues });
   }
   try {
-    // Replace any existing trip by same user for same tournament
+    const userId = getUserId(req);
+    const profile = await getOrCreateProfile(userId);
+    const userName = profile?.name || "A traveler";
+    const userTeam = profile?.team || null;
+
     await db
       .delete(tripsTable)
       .where(
         and(
-          eq(tripsTable.userId, parsed.data.userId),
+          eq(tripsTable.userId, userId),
           eq(tripsTable.tournamentId, parsed.data.tournamentId),
         ),
       );
-    const [trip] = await db.insert(tripsTable).values(parsed.data).returning();
+    const [trip] = await db
+      .insert(tripsTable)
+      .values({
+        userId,
+        userName,
+        userTeam,
+        tournamentId: parsed.data.tournamentId,
+        airport: parsed.data.airport,
+        hotel: parsed.data.hotel,
+        hotelPlaceId: parsed.data.hotelPlaceId ?? null,
+        datetime: parsed.data.datetime,
+        mode: parsed.data.mode,
+        baggageCount: parsed.data.baggageCount ?? null,
+      })
+      .returning();
 
-    // Find matching active watches (different user, same tournament, mode, airport, hotel, within 45min)
     const watches = await db
       .select()
       .from(rideWatchesTable)
@@ -78,7 +107,6 @@ router.post("/trips", async (req, res) => {
           data: { tournamentId: trip.tournamentId, tripId: trip.id, mode: trip.mode },
         })),
       );
-      // Deactivate fired watches so user only gets the first match alert
       await Promise.all(
         matched.map((w) =>
           db

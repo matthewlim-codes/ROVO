@@ -2,12 +2,12 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { notificationsTable } from "@workspace/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
+import { requireAuth, getUserId } from "../middlewares/requireAuth";
 
 const router = Router();
 
-router.get("/notifications", async (req, res) => {
-  const userId = typeof req.query.userId === "string" ? req.query.userId : "";
-  if (!userId) return res.status(400).json({ error: "userId required" });
+router.get("/notifications", requireAuth, async (req, res) => {
+  const userId = getUserId(req);
   const onlyUnread = req.query.unread === "true";
   try {
     const rows = await db
@@ -26,22 +26,27 @@ router.get("/notifications", async (req, res) => {
   }
 });
 
-router.post("/notifications/:id/read", async (req, res) => {
+router.post("/notifications/:id/read", requireAuth, async (req, res) => {
   try {
+    const userId = getUserId(req);
     await db
       .update(notificationsTable)
       .set({ readAt: new Date() })
-      .where(eq(notificationsTable.id, req.params.id as string));
+      .where(
+        and(
+          eq(notificationsTable.id, req.params.id as string),
+          eq(notificationsTable.userId, userId),
+        ),
+      );
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "Failed to mark read" });
   }
 });
 
-router.post("/notifications/read-all", async (req, res) => {
-  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
-  if (!userId) return res.status(400).json({ error: "userId required" });
+router.post("/notifications/read-all", requireAuth, async (_req, res) => {
   try {
+    const userId = getUserId(_req);
     await db
       .update(notificationsTable)
       .set({ readAt: new Date() })

@@ -6,3 +6,4 @@ export * from "./rideWatches";
 export * from "./pushTokens";
 export * from "./notifications";
 export * from "./feedback";
+export * from "./userProfiles";

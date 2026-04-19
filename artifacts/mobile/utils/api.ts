@@ -1,6 +1,12 @@
 const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 export const API_BASE = domain ? `https://${domain}/api` : "/api";
 
+let tokenGetter: (() => Promise<string | null>) | null = null;
+
+export function setAuthTokenGetter(getter: (() => Promise<string | null>) | null) {
+  tokenGetter = getter;
+}
+
 export function getAdminUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_ADMIN_URL;
   if (explicit) return explicit;
@@ -32,14 +38,27 @@ export async function apiFetch<T>(
   options?: RequestInit
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
+  let token: string | null = null;
+  if (tokenGetter) {
+    try {
+      token = await tokenGetter();
+    } catch {
+      token = null;
+    }
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options?.headers as Record<string, string>) ?? {}),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   let res: Response;
   try {
     res = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-      },
+      headers,
+      credentials: "include",
     });
   } catch (err) {
     throw new NetworkError(err instanceof Error ? err.message : undefined);

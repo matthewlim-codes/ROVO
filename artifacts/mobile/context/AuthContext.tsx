@@ -1,12 +1,13 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/expo";
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { ApiError, NetworkError, apiFetch } from "../utils/api";
+import { ApiError, NetworkError, apiFetch, setAuthTokenGetter } from "../utils/api";
 import { registerForPushAndUpload } from "../utils/push";
 
 export class InvalidClubCodeError extends Error {
@@ -40,14 +41,35 @@ function isAdminEmail(email: string): boolean {
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return list.includes(email.toLowerCase());
+  return email ? list.includes(email.toLowerCase()) : false;
+}
+
+interface ServerProfile {
+  userId: string;
+  name: string;
+  email: string;
+  club: string;
+  team: string;
+  clubCodeEntered: string;
+  avatarUri: string | null;
+}
+
+function profileToUser(p: ServerProfile): User {
+  return {
+    id: p.userId,
+    email: p.email,
+    name: p.name,
+    club: p.club,
+    team: p.team,
+    clubCodeEntered: p.clubCodeEntered === "true",
+    avatarUri: p.avatarUri ?? undefined,
+    isAdmin: isAdminEmail(p.email),
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   enterClubCode: (code: string) => Promise<void>;
   updateProfile: (updates: {
@@ -55,101 +77,98 @@ interface AuthContextType {
     email?: string;
     avatarUri?: string | null;
   }) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const USERS_KEY = "rsg_users";
-const SESSION_KEY = "rsg_session";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { isLoaded, isSignedIn, getToken, signOut } = useClerkAuth();
+  const { user: clerkUser } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const lastSyncRef = useRef<string | null>(null);
 
+  // Wire Clerk token into apiFetch as soon as we have a getter
   useEffect(() => {
-    loadSession();
-  }, []);
+    setAuthTokenGetter(() => getToken());
+    return () => {
+      setAuthTokenGetter(null);
+    };
+  }, [getToken]);
 
+  const refreshProfile = useCallback(async () => {
+    if (!isSignedIn) {
+      setUser(null);
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const p = await apiFetch<ServerProfile>("/profile");
+      setUser(profileToUser(p));
+    } catch {
+      // ignore
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [isSignedIn]);
+
+  // Load profile when sign-in state changes
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setUser(null);
+      lastSyncRef.current = null;
+      return;
+    }
+    if (lastSyncRef.current === clerkUser?.id) return;
+    lastSyncRef.current = clerkUser?.id ?? null;
+    refreshProfile();
+  }, [isLoaded, isSignedIn, clerkUser?.id, refreshProfile]);
+
+  // Sync clerk display name/email into our profile if changed
+  useEffect(() => {
+    if (!user || !clerkUser) return;
+    const clerkName = [clerkUser.firstName, clerkUser.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const clerkEmail =
+      clerkUser.primaryEmailAddress?.emailAddress ??
+      clerkUser.emailAddresses[0]?.emailAddress ??
+      "";
+    const updates: { name?: string; email?: string } = {};
+    if (clerkName && !user.name) updates.name = clerkName;
+    if (clerkEmail && !user.email) updates.email = clerkEmail;
+    if (Object.keys(updates).length) {
+      apiFetch<ServerProfile>("/profile", {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      })
+        .then((p) => setUser(profileToUser(p)))
+        .catch(() => {});
+    }
+  }, [user, clerkUser]);
+
+  // Register for push when signed in
   useEffect(() => {
     if (user?.id) {
-      registerForPushAndUpload(user.id).catch(() => {});
+      registerForPushAndUpload().catch(() => {});
     }
   }, [user?.id]);
 
-  const loadSession = async () => {
-    try {
-      const sessionId = await AsyncStorage.getItem(SESSION_KEY);
-      if (sessionId) {
-        const usersRaw = await AsyncStorage.getItem(USERS_KEY);
-        const users: User[] = usersRaw ? JSON.parse(usersRaw) : [];
-        const idx = users.findIndex((u) => u.id === sessionId);
-        if (idx !== -1) {
-          const desiredAdmin = isAdminEmail(users[idx].email);
-          if (!!users[idx].isAdmin !== desiredAdmin) {
-            users[idx] = { ...users[idx], isAdmin: desiredAdmin };
-            await saveUsers(users);
-          }
-          setUser(users[idx]);
-        }
-      }
-    } catch {
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getUsers = async (): Promise<User[]> => {
-    const raw = await AsyncStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  };
-
-  const saveUsers = async (users: User[]) => {
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
-  };
-
-  const login = useCallback(async (email: string, _password: string) => {
-    const users = await getUsers();
-    const idx = users.findIndex(
-      (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
-    if (idx === -1) throw new Error("No account found with this email.");
-    const desiredAdmin = isAdminEmail(users[idx].email);
-    if (!!users[idx].isAdmin !== desiredAdmin) {
-      users[idx] = { ...users[idx], isAdmin: desiredAdmin };
-      await saveUsers(users);
-    }
-    await AsyncStorage.setItem(SESSION_KEY, users[idx].id);
-    setUser(users[idx]);
-  }, []);
-
-  const register = useCallback(
-    async (email: string, _password: string, name: string) => {
-      const users = await getUsers();
-      const exists = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-      );
-      if (exists) throw new Error("An account with this email already exists.");
-      const newUser: User = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        email,
-        name,
-        club: "",
-        team: "",
-        clubCodeEntered: false,
-        isAdmin: isAdminEmail(email),
-      };
-      users.push(newUser);
-      await saveUsers(users);
-      await AsyncStorage.setItem(SESSION_KEY, newUser.id);
-      setUser(newUser);
-    },
-    []
-  );
-
   const logout = useCallback(async () => {
-    await AsyncStorage.removeItem(SESSION_KEY);
+    try {
+      await clerkSignOut();
+    } catch {
+      try {
+        await signOut();
+      } catch {}
+    }
     setUser(null);
-  }, []);
+  }, [clerkSignOut, signOut]);
 
   const enterClubCode = useCallback(
     async (code: string) => {
@@ -171,20 +190,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         throw new ClubCodeNetworkError();
       }
-      const users = await getUsers();
-      const idx = users.findIndex((u) => u.id === user.id);
-      if (idx === -1) return;
-      const updated: User = {
-        ...users[idx],
-        club: clubInfo.clubName ?? "",
-        team: clubInfo.teamName,
-        clubCodeEntered: true,
-      };
-      users[idx] = updated;
-      await saveUsers(users);
-      setUser(updated);
+      const updated = await apiFetch<ServerProfile>("/profile/club-code", {
+        method: "POST",
+        body: JSON.stringify({
+          club: clubInfo.clubName ?? "",
+          team: clubInfo.teamName,
+        }),
+      });
+      setUser(profileToUser(updated));
     },
-    [user]
+    [user],
   );
 
   const updateProfile = useCallback(
@@ -194,45 +209,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatarUri?: string | null;
     }) => {
       if (!user) return;
-      const users = await getUsers();
-      const idx = users.findIndex((u) => u.id === user.id);
-      if (idx === -1) return;
-      if (updates.email) {
-        const conflict = users.find(
-          (u) =>
-            u.id !== user.id &&
-            u.email.toLowerCase() === updates.email!.toLowerCase()
-        );
-        if (conflict) throw new Error("That email is already in use.");
-      }
-      const newEmail = updates.email?.trim() || users[idx].email;
-      const updated: User = {
-        ...users[idx],
-        name: updates.name?.trim() || users[idx].name,
-        email: newEmail,
-        avatarUri:
-          updates.avatarUri === null
-            ? undefined
-            : updates.avatarUri ?? users[idx].avatarUri,
-        isAdmin: isAdminEmail(newEmail),
-      };
-      users[idx] = updated;
-      await saveUsers(users);
-      setUser(updated);
+      const body: Record<string, unknown> = {};
+      if (updates.name !== undefined) body.name = updates.name?.trim();
+      if (updates.email !== undefined) body.email = updates.email?.trim();
+      if (updates.avatarUri !== undefined) body.avatarUri = updates.avatarUri;
+      const updated = await apiFetch<ServerProfile>("/profile", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      setUser(profileToUser(updated));
     },
-    [user]
+    [user],
   );
+
+  const isLoading = !isLoaded || (!!isSignedIn && profileLoading && !user);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
-        login,
-        register,
         logout,
         enterClubCode,
         updateProfile,
+        refreshProfile,
       }}
     >
       {children}

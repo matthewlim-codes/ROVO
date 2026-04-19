@@ -13,7 +13,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export async function registerForPushAndUpload(userId: string): Promise<string | null> {
+export async function registerForPushAndUpload(): Promise<string | null> {
   try {
     if (Platform.OS === "web" || !Device.isDevice) return null;
 
@@ -38,7 +38,7 @@ export async function registerForPushAndUpload(userId: string): Promise<string |
 
     await apiFetch("/push-tokens", {
       method: "POST",
-      body: JSON.stringify({ token, userId, platform: Platform.OS }),
+      body: JSON.stringify({ token, platform: Platform.OS }),
     });
     return token;
   } catch {
