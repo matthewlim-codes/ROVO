@@ -1,7 +1,10 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,8 +25,50 @@ export default function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const [avatarUri, setAvatarUri] = useState<string | undefined | null>(
+    user?.avatarUri
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const handlePickPhoto = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission needed",
+          "Please allow photo access to change your profile picture."
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]?.uri) {
+        setAvatarUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert("Could not pick image", String(e));
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (Platform.OS === "web") {
+      setAvatarUri(null);
+    } else {
+      Alert.alert("Remove photo?", "Your profile picture will be removed.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => setAvatarUri(null),
+        },
+      ]);
+    }
+  };
 
   const handleSave = async () => {
     setError(null);
@@ -37,7 +82,12 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateProfile({ name, email });
+      await updateProfile({
+        name,
+        email,
+        avatarUri:
+          avatarUri === null ? null : avatarUri ?? user?.avatarUri,
+      });
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save changes.");
@@ -45,6 +95,9 @@ export default function EditProfileScreen() {
       setSaving(false);
     }
   };
+
+  const initial = (user?.name ?? "?").charAt(0).toUpperCase();
+  const showAvatar = !!avatarUri;
 
   return (
     <KeyboardAvoidingView
@@ -73,12 +126,79 @@ export default function EditProfileScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <View
-          style={[styles.avatar, { backgroundColor: colors.muted }]}
-        >
-          <Text style={[styles.avatarText, { color: colors.foreground }]}>
-            {(user?.name ?? "?").charAt(0).toUpperCase()}
-          </Text>
+        <View style={styles.avatarColumn}>
+          <Pressable
+            onPress={handlePickPhoto}
+            style={[
+              styles.avatar,
+              {
+                backgroundColor: colors.muted,
+                borderColor: colors.separator,
+              },
+            ]}
+          >
+            {showAvatar ? (
+              <Image
+                source={{ uri: avatarUri! }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={[styles.avatarText, { color: colors.foreground }]}>
+                {initial}
+              </Text>
+            )}
+            <View
+              style={[
+                styles.cameraBadge,
+                { backgroundColor: colors.primary, borderColor: colors.background },
+              ]}
+            >
+              <Feather name="camera" size={14} color="#fff" />
+            </View>
+          </Pressable>
+
+          <View style={styles.avatarActions}>
+            <Pressable
+              onPress={handlePickPhoto}
+              style={[
+                styles.avatarActionBtn,
+                {
+                  backgroundColor: colors.muted,
+                  borderColor: colors.separator,
+                },
+              ]}
+            >
+              <Feather name="image" size={14} color={colors.foreground} />
+              <Text
+                style={[
+                  styles.avatarActionText,
+                  { color: colors.foreground },
+                ]}
+              >
+                {showAvatar ? "Change photo" : "Add photo"}
+              </Text>
+            </Pressable>
+            {showAvatar ? (
+              <Pressable
+                onPress={handleRemovePhoto}
+                style={[
+                  styles.avatarActionBtn,
+                  {
+                    backgroundColor: "transparent",
+                    borderColor: colors.separator,
+                  },
+                ]}
+              >
+                <Feather name="trash-2" size={14} color="#dc2626" />
+                <Text
+                  style={[styles.avatarActionText, { color: "#dc2626" }]}
+                >
+                  Remove
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.field}>
@@ -194,18 +314,56 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
   },
+  avatarColumn: {
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 4,
+  },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    alignSelf: "center",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    borderWidth: 1,
+    overflow: "visible",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 48,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 36,
     fontFamily: "Inter_700Bold",
+  },
+  cameraBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  avatarActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  avatarActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  avatarActionText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   field: { gap: 6 },
   label: {

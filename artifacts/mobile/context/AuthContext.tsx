@@ -14,6 +14,7 @@ export interface User {
   club: string;
   team: string;
   clubCodeEntered: boolean;
+  avatarUri?: string;
 }
 
 interface AuthContextType {
@@ -23,7 +24,11 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   enterClubCode: (code: string) => Promise<void>;
-  updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
+  updateProfile: (updates: {
+    name?: string;
+    email?: string;
+    avatarUri?: string | null;
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -131,7 +136,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateProfile = useCallback(
-    async (updates: { name?: string; email?: string }) => {
+    async (updates: {
+      name?: string;
+      email?: string;
+      avatarUri?: string | null;
+    }) => {
       if (!user) return;
       const users = await getUsers();
       const idx = users.findIndex((u) => u.id === user.id);
@@ -148,6 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...users[idx],
         name: updates.name?.trim() || users[idx].name,
         email: updates.email?.trim() || users[idx].email,
+        avatarUri:
+          updates.avatarUri === null
+            ? undefined
+            : updates.avatarUri ?? users[idx].avatarUri,
       };
       users[idx] = updated;
       await saveUsers(users);
