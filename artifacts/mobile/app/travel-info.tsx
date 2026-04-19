@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AirportResult, AirportSearch } from "@/components/AirportSearch";
 import { Button } from "@/components/Button";
 import { HotelResult, HotelSearch } from "@/components/HotelSearch";
 import { Input } from "@/components/Input";
@@ -19,11 +20,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 import { formatDateTime } from "@/utils/time";
-
-const AIRPORTS = [
-  "DFW", "DAL", "LAX", "SNA", "ORD", "MDW", "MCO", "TPA",
-  "ATL", "DEN", "LAS", "PHX", "SEA", "SFO", "JFK", "EWR", "MIA",
-];
 
 function roundToNearestHalf(date: Date): Date {
   const ms = 30 * 60 * 1000;
@@ -222,8 +218,7 @@ export default function TravelInfoScreen() {
   const { selectedTournament, saveTrip } = useTrip();
 
   const [mode, setMode] = useState<"arrival" | "departure">("arrival");
-  const [airport, setAirport] = useState("");
-  const [showAirports, setShowAirports] = useState(false);
+  const [airport, setAirport] = useState<AirportResult | null>(null);
   const [hotel, setHotel] = useState<HotelResult | null>(null);
   const [datetime, setDatetime] = useState(roundToNearestHalf(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -236,16 +231,10 @@ export default function TravelInfoScreen() {
     return null;
   }
 
-  const filteredAirports = airport
-    ? AIRPORTS.filter((a) =>
-        a.toLowerCase().includes(airport.toLowerCase())
-      )
-    : AIRPORTS;
-
   const handleSubmit = async () => {
     setError("");
-    if (!airport.trim()) {
-      setError("Please enter your airport.");
+    if (!airport) {
+      setError("Please select your airport.");
       return;
     }
     if (!hotel) {
@@ -260,7 +249,7 @@ export default function TravelInfoScreen() {
         userName: user.name,
         userTeam: user.team,
         tournamentId: selectedTournament.id,
-        airport: airport.toUpperCase(),
+        airport: airport.iataCode ?? airport.name,
         hotel: hotel.name,
         hotelPlaceId: hotel.placeId,
         datetime: datetime.toISOString(),
@@ -374,61 +363,11 @@ export default function TravelInfoScreen() {
             >
               Airport
             </Text>
-            <Input
-              placeholder="e.g. DFW, LAX, ORD"
-              value={airport}
-              onChangeText={(t) => {
-                setAirport(t.toUpperCase());
-                setShowAirports(true);
-              }}
-              onFocus={() => setShowAirports(true)}
-              onBlur={() =>
-                setTimeout(() => setShowAirports(false), 150)
-              }
-              autoCapitalize="characters"
-              autoCorrect={false}
-              leftIcon={
-                <Feather
-                  name="airplay"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              }
+            <AirportSearch
+              tournamentLocation={selectedTournament.location}
+              onSelect={setAirport}
+              selected={airport}
             />
-            {showAirports && filteredAirports.length > 0 && (
-              <View
-                style={[
-                  styles.dropdown,
-                  {
-                    backgroundColor: colors.muted,
-                    borderRadius: 12,
-                  },
-                ]}
-              >
-                {filteredAirports.slice(0, 6).map((a) => (
-                  <Pressable
-                    key={a}
-                    onPress={() => {
-                      setAirport(a);
-                      setShowAirports(false);
-                    }}
-                    style={[
-                      styles.dropdownItem,
-                      { borderBottomColor: colors.separator },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        { color: colors.foreground },
-                      ]}
-                    >
-                      {a}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
           </View>
 
           <View
