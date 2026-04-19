@@ -13,27 +13,36 @@ interface PlaceResult {
   iataCode?: string;
 }
 
+interface SearchOutcome {
+  results: PlaceResult[];
+  upstreamError?: string;
+}
+
 async function searchPlaces(
   query: string,
   location: string,
-  types: string[]
-): Promise<PlaceResult[]> {
+  type?: string
+): Promise<SearchOutcome> {
   if (!GOOGLE_MAPS_API_KEY) {
-    return [];
+    return { results: [] };
   }
 
   const params = new URLSearchParams({
-    query: `${query} near ${location}`,
+    query: `${query} in ${location}`,
     key: GOOGLE_MAPS_API_KEY,
   });
+  if (type) params.set("type", type);
 
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
 
   const resp = await fetch(url);
-  if (!resp.ok) return [];
+  if (!resp.ok) {
+    return { results: [], upstreamError: `HTTP ${resp.status}` };
+  }
 
   const data = (await resp.json()) as {
     status: string;
+    error_message?: string;
     results?: Array<{
       place_id: string;
       name: string;
@@ -43,15 +52,26 @@ async function searchPlaces(
     }>;
   };
 
-  if (data.status !== "OK" || !data.results) return [];
+  if (data.status !== "OK" || !data.results) {
+    const upstreamError =
+      data.status === "ZERO_RESULTS"
+        ? undefined
+        : data.error_message || data.status;
+    if (upstreamError) {
+      console.warn("[places] Google API error:", data.status, data.error_message);
+    }
+    return { results: [], upstreamError };
+  }
 
-  return data.results.slice(0, 8).map((r) => ({
-    placeId: r.place_id,
-    name: r.name,
-    address: r.formatted_address,
-    rating: r.rating,
-    types: r.types,
-  }));
+  return {
+    results: data.results.slice(0, 8).map((r) => ({
+      placeId: r.place_id,
+      name: r.name,
+      address: r.formatted_address,
+      rating: r.rating,
+      types: r.types,
+    })),
+  };
 }
 
 router.get("/places/hotels", async (req, res) => {
@@ -64,12 +84,16 @@ router.get("/places/hotels", async (req, res) => {
   }
 
   try {
-    const results = await searchPlaces(
+    const { results, upstreamError } = await searchPlaces(
       query ? `${query} hotel` : "hotels",
       location,
-      ["lodging"]
+      "lodging"
     );
-    res.json({ results, hasApiKey: !!GOOGLE_MAPS_API_KEY });
+    res.json({
+      results,
+      hasApiKey: !!GOOGLE_MAPS_API_KEY,
+      upstreamError,
+    });
   } catch (e) {
     res.status(500).json({ error: "Places API error" });
   }
@@ -85,10 +109,10 @@ router.get("/places/airports", async (req, res) => {
   }
 
   try {
-    const results = await searchPlaces(
+    const { results, upstreamError } = await searchPlaces(
       query ? `${query} airport` : "airports",
       location,
-      ["airport"]
+      "airport"
     );
 
     const airports = results.map((r) => {
@@ -101,7 +125,11 @@ router.get("/places/airports", async (req, res) => {
       };
     });
 
-    res.json({ results: airports, hasApiKey: !!GOOGLE_MAPS_API_KEY });
+    res.json({
+      results: airports,
+      hasApiKey: !!GOOGLE_MAPS_API_KEY,
+      upstreamError,
+    });
   } catch (e) {
     res.status(500).json({ error: "Places API error" });
   }
@@ -154,6 +182,10 @@ function extractAirportCode(name: string): string | null {
     ["Salt Lake City", "SLC"],
     ["Portland International", "PDX"],
     ["San Diego International", "SAN"],
+    ["Kansas City International", "MCI"],
+    ["Indianapolis International", "IND"],
+    ["John Glenn Columbus", "CMH"],
+    ["Port Columbus", "CMH"],
   ];
   for (const [key, code] of known) {
     if (name.toLowerCase().includes(key.toLowerCase())) return code;

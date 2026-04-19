@@ -13,6 +13,7 @@ import {
 
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
+import { extractCity } from "@/utils/location";
 
 export interface AirportResult {
   placeId: string;
@@ -31,6 +32,7 @@ interface AirportSearchProps {
 interface AirportsResponse {
   results: AirportResult[];
   hasApiKey: boolean;
+  upstreamError?: string;
 }
 
 export function AirportSearch({
@@ -39,12 +41,14 @@ export function AirportSearch({
   selected,
 }: AirportSearchProps) {
   const colors = useColors();
+  const city = extractCity(tournamentLocation);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AirportResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
+  const [upstreamError, setUpstreamError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +57,7 @@ export function AirportSearch({
       setError(null);
       try {
         const params = new URLSearchParams({
-          location: tournamentLocation,
+          location: city,
         });
         if (query.trim()) params.set("query", query.trim());
         const data = await apiFetch<AirportsResponse>(
@@ -62,6 +66,7 @@ export function AirportSearch({
         if (cancelled) return;
         setResults(data.results);
         setHasApiKey(data.hasApiKey);
+        setUpstreamError(data.upstreamError ?? null);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Search failed");
@@ -75,7 +80,7 @@ export function AirportSearch({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [tournamentLocation, query]);
+  }, [city, query]);
 
   const handleSelect = (a: AirportResult) => {
     onSelect(a);
@@ -133,7 +138,7 @@ export function AirportSearch({
         />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
-          placeholder="Search airports near venue..."
+          placeholder={`Search airports in ${city}...`}
           placeholderTextColor={colors.mutedForeground}
           value={query}
           onChangeText={setQuery}
@@ -152,6 +157,10 @@ export function AirportSearch({
       {!hasApiKey ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           Live airport search isn&apos;t configured yet.
+        </Text>
+      ) : upstreamError ? (
+        <Text style={[styles.hint, { color: "#dc2626" }]}>
+          Airport search unavailable: {upstreamError}
         </Text>
       ) : null}
       {error ? (
@@ -218,7 +227,7 @@ export function AirportSearch({
         />
       ) : showResults && !loading ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          No airports found near this venue.
+          No airports found near {city}.
         </Text>
       ) : null}
     </View>

@@ -1,0 +1,11 @@
+export function extractCity(location: string): string {
+  if (!location) return location;
+  const parts = location
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+  return location;
+}
