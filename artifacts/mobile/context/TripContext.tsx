@@ -195,6 +195,53 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
 
+  const refreshServerTrips = useCallback(async (tournamentId: string) => {
+    try {
+      const data = await apiFetch<
+        Array<{
+          id: string;
+          userId: string;
+          userName: string;
+          userTeam: string | null;
+          tournamentId: string;
+          airport: string;
+          hotel: string;
+          hotelPlaceId: string | null;
+          datetime: string;
+          mode: "arrival" | "departure";
+          baggageCount: number | null;
+        }>
+      >(`/trips?tournamentId=${encodeURIComponent(tournamentId)}`);
+      const mapped: Trip[] = data.map((t) => ({
+        id: `srv-${t.id}`,
+        userId: t.userId,
+        userName: t.userName,
+        userTeam: t.userTeam ?? "",
+        tournamentId: t.tournamentId,
+        airport: t.airport,
+        hotel: t.hotel,
+        hotelPlaceId: t.hotelPlaceId ?? undefined,
+        datetime: t.datetime,
+        mode: t.mode,
+        baggageCount: t.baggageCount ?? undefined,
+      }));
+      setTrips((prev) => {
+        const serverKeys = new Set(
+          mapped.map((m) => `${m.userId}-${m.tournamentId}`),
+        );
+        const kept = prev.filter(
+          (p) =>
+            !p.id.startsWith("srv-") &&
+            !(
+              p.tournamentId === tournamentId &&
+              serverKeys.has(`${p.userId}-${p.tournamentId}`)
+            ),
+        );
+        return [...kept, ...mapped];
+      });
+    } catch {}
+  }, []);
+
   const refreshTournaments = useCallback(async () => {
     setTournamentsLoading(true);
     setTournamentsError(null);
@@ -214,6 +261,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     loadData();
     refreshTournaments();
   }, [refreshTournaments]);
+
+  useEffect(() => {
+    if (!selectedTournament?.id) return;
+    refreshServerTrips(selectedTournament.id);
+    const interval = setInterval(() => {
+      refreshServerTrips(selectedTournament.id);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedTournament?.id, refreshServerTrips]);
 
   const loadData = async () => {
     try {
@@ -269,6 +325,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       );
       return [...filtered, newTrip];
     });
+    apiFetch("/trips", {
+      method: "POST",
+      body: JSON.stringify({
+        userId: tripData.userId,
+        userName: tripData.userName,
+        userTeam: tripData.userTeam,
+        tournamentId: tripData.tournamentId,
+        airport: tripData.airport,
+        hotel: tripData.hotel,
+        hotelPlaceId: tripData.hotelPlaceId,
+        datetime: tripData.datetime,
+        mode: tripData.mode,
+        baggageCount: tripData.baggageCount,
+      }),
+    }).catch(() => {});
     return newTrip;
   }, []);
 

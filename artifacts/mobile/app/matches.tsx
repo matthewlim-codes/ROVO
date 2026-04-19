@@ -1,7 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -15,19 +17,47 @@ import { MatchCard } from "@/components/MatchCard";
 import { useAuth } from "@/context/AuthContext";
 import { useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
+import { apiFetch } from "@/utils/api";
 
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { trips, selectedTournament, getMatches } = useTrip();
-  const { user: _user } = useAuth();
+  const { user } = useAuth();
+  const [watching, setWatching] = useState(false);
+  const [watchSubmitting, setWatchSubmitting] = useState(false);
 
   const trip = trips.find((t) => t.id === tripId);
   const matches = useMemo(() => {
     if (!trip) return [];
     return getMatches(trip);
   }, [trip, getMatches]);
+
+  const handleNotifyMe = async () => {
+    if (!trip || !user) return;
+    setWatchSubmitting(true);
+    try {
+      await apiFetch("/watches", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: user.id,
+          userName: user.name,
+          tournamentId: trip.tournamentId,
+          airport: trip.airport,
+          hotel: trip.hotel,
+          hotelPlaceId: trip.hotelPlaceId,
+          datetime: trip.datetime,
+          mode: trip.mode,
+        }),
+      });
+      setWatching(true);
+    } catch (e) {
+      Alert.alert("Could not set alert", e instanceof Error ? e.message : String(e));
+    } finally {
+      setWatchSubmitting(false);
+    }
+  };
 
   if (!trip) {
     return (
@@ -150,6 +180,42 @@ export default function MatchesScreen() {
               No families have entered the same airport and hotel for this time
               window. Check back as more families register.
             </Text>
+            {watching ? (
+              <View
+                style={[
+                  styles.watchingPill,
+                  { backgroundColor: colors.accentSurface, borderColor: colors.accentBorder },
+                ]}
+              >
+                <Feather name="bell" size={14} color={colors.accent} />
+                <Text style={[styles.watchingText, { color: colors.accent }]}>
+                  We'll alert you when someone matches
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={handleNotifyMe}
+                disabled={watchSubmitting}
+                style={({ pressed }) => [
+                  styles.notifyBtn,
+                  {
+                    backgroundColor: colors.foreground,
+                    opacity: pressed || watchSubmitting ? 0.85 : 1,
+                  },
+                ]}
+              >
+                {watchSubmitting ? (
+                  <ActivityIndicator color={colors.background} />
+                ) : (
+                  <>
+                    <Feather name="bell" size={15} color={colors.background} />
+                    <Text style={[styles.notifyBtnText, { color: colors.background }]}>
+                      Notify me when someone matches
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
           </View>
         )}
       </ScrollView>
@@ -281,5 +347,32 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 22,
+  },
+  notifyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 100,
+    marginTop: 8,
+  },
+  notifyBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  watchingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 100,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  watchingText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 });

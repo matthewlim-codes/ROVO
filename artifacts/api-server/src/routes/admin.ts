@@ -78,6 +78,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
   <div class="tab active" onclick="switchTab('clubs')">Clubs</div>
   <div class="tab" onclick="switchTab('codes')">Club Codes</div>
   <div class="tab" onclick="switchTab('tournaments')">Tournaments</div>
+  <div class="tab" onclick="switchTab('feedback')">Feedback</div>
 </div>
 
 <div class="container">
@@ -105,6 +106,20 @@ const ADMIN_HTML = `<!DOCTYPE html>
       <table>
         <thead><tr><th>Code</th><th>Club</th><th>Team Name</th><th>Actions</th></tr></thead>
         <tbody id="codes-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div id="tab-feedback" class="section">
+    <div class="card">
+      <div class="card-header">
+        <h2>Feedback</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadFeedback()">Refresh</button>
+      </div>
+      <table>
+        <thead><tr><th>When</th><th>From</th><th>Message</th><th>Actions</th></tr></thead>
+        <tbody id="feedback-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -140,16 +155,49 @@ const ADMIN_HTML = `<!DOCTYPE html>
 
 <script>
 let currentTab = 'clubs';
-let clubs = [], codes = [], tournaments = [];
+let clubs = [], codes = [], tournaments = [], feedback = [];
 let editingId = null, editingType = null;
 
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', ['clubs','codes','tournaments'][i] === tab);
+    el.classList.toggle('active', ['clubs','codes','tournaments','feedback'][i] === tab);
   });
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'feedback') loadFeedback();
+}
+
+async function loadFeedback() {
+  const tb = document.getElementById('feedback-table-body');
+  try {
+    feedback = await api('GET', '/feedback');
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="4" class="empty">' + esc(e.message) + '</td></tr>';
+    return;
+  }
+  if (!feedback.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No feedback yet.</td></tr>'; return; }
+  tb.innerHTML = feedback.map(f => {
+    const when = new Date(f.createdAt).toLocaleString();
+    const from = f.userName ? esc(f.userName) + (f.userEmail ? ' (' + esc(f.userEmail) + ')' : '') : (f.userEmail ? esc(f.userEmail) : 'Anonymous');
+    return '<tr>' +
+      '<td style="white-space:nowrap;color:var(--muted);font-size:12px">' + esc(when) + '</td>' +
+      '<td>' + from + '</td>' +
+      '<td style="white-space:pre-wrap">' + esc(f.message) + '</td>' +
+      '<td><div class="actions"><button class="btn btn-danger btn-sm" onclick="deleteFeedback(\\''+ f.id +'\\')">Delete</button></div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function deleteFeedback(id) {
+  if (!confirm('Delete this feedback?')) return;
+  try {
+    await api('DELETE', '/feedback/' + id);
+    toast('Deleted');
+    await loadFeedback();
+  } catch (e) {
+    toast(e.message, true);
+  }
 }
 
 function toast(msg, error = false) {

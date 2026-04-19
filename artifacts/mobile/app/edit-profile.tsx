@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { getAdminUrl } from "@/utils/api";
@@ -32,6 +33,7 @@ export default function EditProfileScreen() {
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const handlePickPhoto = async () => {
     try {
@@ -320,6 +322,31 @@ export default function EditProfileScreen() {
         </Pressable>
         ) : null}
 
+        <Pressable
+          onPress={() => setFeedbackOpen(true)}
+          style={({ pressed }) => [
+            styles.adminRow,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.separator,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <View style={[styles.adminIcon, { backgroundColor: colors.muted }]}>
+            <Feather name="message-square" size={16} color={colors.foreground} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.adminTitle, { color: colors.foreground }]}>
+              Send feedback
+            </Text>
+            <Text style={[styles.adminSub, { color: colors.mutedForeground }]}>
+              Bugs, ideas, anything on your mind
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
+
         {error ? (
           <Text style={[styles.error, { color: "#dc2626" }]}>{error}</Text>
         ) : null}
@@ -340,6 +367,7 @@ export default function EditProfileScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      <FeedbackModal visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </KeyboardAvoidingView>
   );
 }

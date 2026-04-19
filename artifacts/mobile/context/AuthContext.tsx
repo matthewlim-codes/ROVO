@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { ApiError, NetworkError, apiFetch } from "../utils/api";
+import { registerForPushAndUpload } from "../utils/push";
 
 export class InvalidClubCodeError extends Error {
   constructor() {
@@ -68,6 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadSession();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      registerForPushAndUpload(user.id).catch(() => {});
+    }
+  }, [user?.id]);
 
   const loadSession = async () => {
     try {
