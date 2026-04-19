@@ -13,6 +13,7 @@ export const tournamentsTable = pgTable("tournaments", {
     .notNull()
     .default("coed"),
   description: text("description"),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

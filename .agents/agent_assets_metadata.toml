@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "1x3Nai8zIWx75_YDlcf7p"
@@ -12,3 +11,93 @@ id = "1OKXvnOBfzSzhaPF0RmN4"
 uri = "file://artifacts/mobile/assets/images/tournament-bg.png"
 type = "image"
 title = "volleyball tournament hall"
+
+[[outputs]]
+id = "F0le-ocVeljdX2Okr1OVe"
+uri = "file://attached_assets/stock_images/tournament_las-vegas.jpg"
+type = "image"
+title = "Las Vegas Strip skyline at dusk Nevada"
+
+[[outputs]]
+id = "VHo5Lb3OkKtth-NkGDTqU"
+uri = "file://attached_assets/stock_images/tournament_dallas-girls.jpg"
+type = "image"
+title = "Dallas Texas downtown skyline at sunset"
+
+[[outputs]]
+id = "rfihkW6UeDwrFxLdSQ69u"
+uri = "file://attached_assets/stock_images/tournament_atlanta.jpg"
+type = "image"
+title = "Atlanta Georgia downtown skyline"
+
+[[outputs]]
+id = "I7jMMfORYUHGZQ_IuuGtd"
+uri = "file://attached_assets/stock_images/tournament_chicago.jpg"
+type = "image"
+title = "Chicago Illinois skyline lakefront"
+
+[[outputs]]
+id = "r5O0iOeBm1On0FylMmMaO"
+uri = "file://attached_assets/stock_images/tournament_minneapolis.jpg"
+type = "image"
+title = "Minneapolis Minnesota downtown skyline"
+
+[[outputs]]
+id = "De4AdHlPXYufPWl2UJvkH"
+uri = "file://attached_assets/stock_images/tournament_philadelphia.jpg"
+type = "image"
+title = "Philadelphia Pennsylvania downtown skyline"
+
+[[outputs]]
+id = "TdC9_MudUo6DVsH9Qf4UE"
+uri = "file://attached_assets/stock_images/tournament_las-vegas-boys.jpg"
+type = "image"
+title = "Las Vegas Nevada strip at night"
+
+[[outputs]]
+id = "xyJme3VN0s-2PSfqfneB8"
+uri = "file://attached_assets/stock_images/tournament_indianapolis.jpg"
+type = "image"
+title = "Indianapolis Indiana downtown skyline"
+
+[[outputs]]
+id = "MwdsfvkolYDWDK-gUU4zF"
+uri = "file://attached_assets/stock_images/tournament_dallas-boys.jpg"
+type = "image"
+title = "Dallas Texas downtown skyline daytime"
+
+[[outputs]]
+id = "OqvNMLDo3tTbCaEXPc3JY"
+uri = "file://attached_assets/stock_images/tournament_kansas-city.jpg"
+type = "image"
+title = "Kansas City Missouri downtown skyline"
+
+[[outputs]]
+id = "W2qsOjoPTE_XUar6qdJ1a"
+uri = "file://attached_assets/stock_images/tournament_columbus.jpg"
+type = "image"
+title = "Columbus Ohio downtown skyline"
+
+[[outputs]]
+id = "eKvLWCh6jfWt04YQ6S1Zv"
+uri = "file://attached_assets/stock_images/tournament_anaheim.jpg"
+type = "image"
+title = "Anaheim California Disneyland area downtown"
+
+[[outputs]]
+id = "GNjEJNNhmIR1Njyn12YLJ"
+uri = "file://attached_assets/stock_images/tournament_orlando-girls.jpg"
+type = "image"
+title = "Orlando Florida downtown convention center"
+
+[[outputs]]
+id = "6LlOlAFu-4UuOxHPwpp4K"
+uri = "file://attached_assets/stock_images/tournament_phoenix.jpg"
+type = "image"
+title = "Phoenix Arizona desert skyline"
+
+[[outputs]]
+id = "zGSgGilvWE3199sWaXUX0"
+uri = "file://attached_assets/stock_images/tournament_indianapolis-girls.jpg"
+type = "image"
+title = "Indianapolis Indiana skyline river"

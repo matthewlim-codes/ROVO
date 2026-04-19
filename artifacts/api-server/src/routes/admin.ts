@@ -265,7 +265,8 @@ function openModal(type, data = null) {
           <option value="coed" \${(data?.gender||'coed')==='coed'?'selected':''}>Coed</option>
         </select></div>
       </div>
-      <div class="form-row"><div><label>Description</label><textarea id="f-description" rows="2">\${esc(data?.description||'')}</textarea></div></div>\`;
+      <div class="form-row"><div><label>Description</label><textarea id="f-description" rows="2">\${esc(data?.description||'')}</textarea></div></div>
+      <div class="form-row"><div><label>Image URL</label><input id="f-image-url" placeholder="https://… or /api/static/tournament-images/foo.jpg" value="\${esc(data?.imageUrl||'')}"></div></div>\`;
   }
 }
 
@@ -298,6 +299,7 @@ async function saveModal() {
         endDate: v('f-end-date'),
         gender: v('f-gender') || 'coed',
         description: v('f-description')||null,
+        imageUrl: v('f-image-url')||null,
       };
       path = editingId ? '/tournaments/' + editingId : '/tournaments';
       method = editingId ? 'PUT' : 'POST';

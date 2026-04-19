@@ -21,6 +21,7 @@ export interface Tournament {
   gender: TournamentGender;
   description: string;
   imageUri?: string;
+  imageUrl?: string | null;
 }
 
 export interface Trip {
@@ -239,7 +240,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   const tournamentsWithImages: Tournament[] = tournaments.map((t) => ({
     ...t,
-    imageUri: tournamentImages[t.id] ?? t.imageUri,
+    imageUri: tournamentImages[t.id] ?? t.imageUri ?? t.imageUrl ?? undefined,
   }));
 
   const saveTrip = useCallback(async (tripData: Omit<Trip, "id">) => {
