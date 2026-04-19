@@ -23,6 +23,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   enterClubCode: (code: string) => Promise<void>;
+  updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -129,9 +130,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const updateProfile = useCallback(
+    async (updates: { name?: string; email?: string }) => {
+      if (!user) return;
+      const users = await getUsers();
+      const idx = users.findIndex((u) => u.id === user.id);
+      if (idx === -1) return;
+      if (updates.email) {
+        const conflict = users.find(
+          (u) =>
+            u.id !== user.id &&
+            u.email.toLowerCase() === updates.email!.toLowerCase()
+        );
+        if (conflict) throw new Error("That email is already in use.");
+      }
+      const updated: User = {
+        ...users[idx],
+        name: updates.name?.trim() || users[idx].name,
+        email: updates.email?.trim() || users[idx].email,
+      };
+      users[idx] = updated;
+      await saveUsers(users);
+      setUser(updated);
+    },
+    [user]
+  );
+
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, login, register, logout, enterClubCode }}
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        enterClubCode,
+        updateProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>

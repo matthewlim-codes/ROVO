@@ -50,6 +50,7 @@ interface TripContextType {
   getMatches: (trip: Trip) => MatchGroup[];
   sendMessage: (groupId: string, msg: Omit<ChatMessage, "id">) => Promise<void>;
   loadMessages: (groupId: string) => ChatMessage[];
+  setTournamentImage: (tournamentId: string, uri: string) => Promise<void>;
 }
 
 export interface MatchGroup {
@@ -67,6 +68,7 @@ const TripContext = createContext<TripContextType | null>(null);
 
 const TRIPS_KEY = "rsg_trips";
 const MESSAGES_KEY = "rsg_messages";
+const TOURNAMENT_IMAGES_KEY = "rsg_tournament_images";
 
 const DEMO_TOURNAMENTS: Tournament[] = [
   {
@@ -207,6 +209,9 @@ function groupTripsIntoMatches(trips: Trip[], userTrip: Trip): MatchGroup[] {
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(DEMO_TRIPS);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [tournamentImages, setTournamentImages] = useState<
+    Record<string, string>
+  >({});
   const [selectedTournament, setSelectedTournament] =
     useState<Tournament | null>(null);
 
@@ -221,8 +226,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       setTrips([...DEMO_TRIPS, ...stored]);
       const msgRaw = await AsyncStorage.getItem(MESSAGES_KEY);
       if (msgRaw) setMessages(JSON.parse(msgRaw));
+      const imgRaw = await AsyncStorage.getItem(TOURNAMENT_IMAGES_KEY);
+      if (imgRaw) setTournamentImages(JSON.parse(imgRaw));
     } catch {}
   };
+
+  const setTournamentImage = useCallback(
+    async (tournamentId: string, uri: string) => {
+      setTournamentImages((prev) => {
+        const updated = { ...prev, [tournamentId]: uri };
+        AsyncStorage.setItem(TOURNAMENT_IMAGES_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    []
+  );
+
+  const tournamentsWithImages: Tournament[] = DEMO_TOURNAMENTS.map((t) => ({
+    ...t,
+    imageUri: tournamentImages[t.id] ?? t.imageUri,
+  }));
 
   const saveTrip = useCallback(async (tripData: Omit<Trip, "id">) => {
     const newTrip: Trip = {
@@ -299,7 +322,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   return (
     <TripContext.Provider
       value={{
-        tournaments: DEMO_TOURNAMENTS,
+        tournaments: tournamentsWithImages,
         trips,
         messages,
         selectedTournament,
@@ -309,6 +332,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         getMatches,
         sendMessage,
         loadMessages,
+        setTournamentImage,
       }}
     >
       {children}
