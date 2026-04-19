@@ -225,7 +225,7 @@ export function AirportSearch({
             </Pressable>
           )}
         />
-      ) : showResults && !loading ? (
+      ) : showResults && !loading && hasApiKey && !upstreamError ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           No airports found near {city}.
         </Text>
