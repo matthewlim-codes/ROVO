@@ -45,6 +45,15 @@ function clerkErrorMessage(err: unknown): string {
   );
 }
 
+function navigateAfterAuth(decorateUrl: (url: string) => string) {
+  const url = decorateUrl("/");
+  if (url.startsWith("http")) {
+    if (typeof window !== "undefined") window.location.href = url;
+  } else {
+    router.replace(url as Href);
+  }
+}
+
 export default function LoginScreen() {
   useWarmUpBrowser();
   const colors = useColors();
@@ -55,7 +64,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [statusError, setStatusError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const passwordRef = useRef<TextInput>(null);
@@ -63,9 +72,9 @@ export default function LoginScreen() {
   const loading = fetchStatus === "fetching";
 
   const handleSubmit = async () => {
-    setError("");
+    setStatusError("");
     if (!email.trim() || !password.trim()) {
-      setError("Please fill in all fields.");
+      setStatusError("Please fill in all fields.");
       return;
     }
     const { error: signInError } = await signIn.password({
@@ -73,25 +82,22 @@ export default function LoginScreen() {
       password,
     });
     if (signInError) {
-      setError(signInError.message ?? "Sign-in failed.");
+      setStatusError(signInError.message ?? "Sign-in failed.");
       return;
     }
     if (signIn.status === "complete") {
       await signIn.finalize({
-        navigate: ({ decorateUrl }) => {
-          const url = decorateUrl("/");
-          if (url.startsWith("http")) {
-            if (typeof window !== "undefined") window.location.href = url;
-          } else {
-            router.replace(url as Href);
-          }
-        },
+        navigate: ({ decorateUrl }) => navigateAfterAuth(decorateUrl),
       });
+    } else if (signIn.status === "needs_second_factor" || signIn.status === "needs_client_trust") {
+      setStatusError("Additional verification required. Please try again later.");
+    } else {
+      setStatusError("Sign-in incomplete. Please try again.");
     }
   };
 
   const handleGoogle = async () => {
-    setError("");
+    setStatusError("");
     setGoogleLoading(true);
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
@@ -101,24 +107,17 @@ export default function LoginScreen() {
       if (createdSessionId && setActive) {
         await setActive({
           session: createdSessionId,
-          navigate: async ({ decorateUrl }) => {
-            const url = decorateUrl("/");
-            if (url.startsWith("http")) {
-              if (typeof window !== "undefined") window.location.href = url;
-            } else {
-              router.replace(url as Href);
-            }
-          },
+          navigate: async ({ decorateUrl }) => navigateAfterAuth(decorateUrl),
         });
+      } else {
+        setStatusError("Google sign-in incomplete. Please try again.");
       }
     } catch (e) {
-      setError(clerkErrorMessage(e));
+      setStatusError(clerkErrorMessage(e));
     } finally {
       setGoogleLoading(false);
     }
   };
-
-  const fieldErrors = (errors as unknown as { fields?: Record<string, { message?: string }> })?.fields;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -139,9 +138,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <View
-              style={[styles.logoMark, { backgroundColor: colors.primary }]}
-            >
+            <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
               <Text style={styles.logoMarkText}>R</Text>
             </View>
             <Text style={[styles.brandName, { color: colors.foreground }]}>
@@ -172,34 +169,17 @@ export default function LoginScreen() {
               ]}
             >
               <Feather name="chrome" size={18} color={colors.foreground} />
-              <Text
-                style={[styles.googleBtnText, { color: colors.foreground }]}
-              >
+              <Text style={[styles.googleBtnText, { color: colors.foreground }]}>
                 {googleLoading ? "Opening Google…" : "Continue with Google"}
               </Text>
             </Pressable>
 
             <View style={styles.divider}>
-              <View
-                style={[
-                  styles.dividerLine,
-                  { backgroundColor: colors.border },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.dividerText,
-                  { color: colors.mutedForeground },
-                ]}
-              >
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
                 or
               </Text>
-              <View
-                style={[
-                  styles.dividerLine,
-                  { backgroundColor: colors.border },
-                ]}
-              />
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
             <Input
@@ -211,19 +191,13 @@ export default function LoginScreen() {
               autoCorrect={false}
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
-              leftIcon={
-                <Feather
-                  name="mail"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              }
+              leftIcon={<Feather name="mail" size={18} color={colors.mutedForeground} />}
             />
-            {fieldErrors?.identifier?.message ? (
+            {errors.fields.identifier && (
               <Text style={[styles.fieldError, { color: colors.destructive }]}>
-                {fieldErrors.identifier.message}
+                {errors.fields.identifier.message}
               </Text>
-            ) : null}
+            )}
 
             <Input
               ref={passwordRef}
@@ -233,13 +207,7 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
-              leftIcon={
-                <Feather
-                  name="lock"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              }
+              leftIcon={<Feather name="lock" size={18} color={colors.mutedForeground} />}
               rightIcon={
                 <Pressable onPress={() => setShowPassword(!showPassword)}>
                   <Feather
@@ -250,25 +218,17 @@ export default function LoginScreen() {
                 </Pressable>
               }
             />
-            {fieldErrors?.password?.message ? (
+            {errors.fields.password && (
               <Text style={[styles.fieldError, { color: colors.destructive }]}>
-                {fieldErrors.password.message}
+                {errors.fields.password.message}
               </Text>
-            ) : null}
+            )}
 
-            {error ? (
-              <View
-                style={[styles.errorBox, { backgroundColor: "#FEF2F2" }]}
-              >
-                <Feather
-                  name="alert-circle"
-                  size={14}
-                  color={colors.destructive}
-                />
-                <Text
-                  style={[styles.errorText, { color: colors.destructive }]}
-                >
-                  {error}
+            {statusError ? (
+              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2" }]}>
+                <Feather name="alert-circle" size={14} color={colors.destructive} />
+                <Text style={[styles.errorText, { color: colors.destructive }]}>
+                  {statusError}
                 </Text>
               </View>
             ) : null}
@@ -282,9 +242,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.switchRow}>
-            <Text
-              style={[styles.switchText, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
               Don't have an account?
             </Text>
             <Pressable onPress={() => router.push("/sign-up" as Href)}>
@@ -304,64 +262,29 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 24, gap: 32 },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
   logoMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
   },
   logoMarkText: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   brandName: { fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
   heading: { gap: 6 },
-  title: {
-    fontSize: 32,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.8,
-    lineHeight: 38,
-  },
+  title: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.8, lineHeight: 38 },
   subtitle: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 22 },
   form: { gap: 12 },
   googleBtn: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+    height: 48, borderRadius: 12, borderWidth: 1,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
   },
   googleBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginVertical: 4,
-  },
+  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  fieldError: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: -4,
-  },
+  fieldError: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: -4 },
   errorBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
+    flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 12,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-    lineHeight: 18,
-  },
+  errorText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
   switchRow: { flexDirection: "row", justifyContent: "center", gap: 6 },
   switchText: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  switchLink: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    textDecorationLine: "underline",
-  },
+  switchLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" },
 });
