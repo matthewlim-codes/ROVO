@@ -52,6 +52,7 @@ export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -59,6 +60,7 @@ export default function SignUpScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
   const loading = fetchStatus === "fetching";
@@ -72,7 +74,7 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setError("");
-    if (!email.trim() || !password.trim()) {
+    if (!name.trim() || !email.trim() || !password.trim()) {
       setError("Please fill in all fields.");
       return;
     }
@@ -84,6 +86,11 @@ export default function SignUpScreen() {
       setError(signUpError.message ?? "Sign-up failed.");
       return;
     }
+    const [firstName, ...rest] = name.trim().split(/\s+/);
+    await (signUp as unknown as { update: (p: object) => Promise<void> }).update({
+      firstName,
+      lastName: rest.join(" ") || undefined,
+    }).catch(() => {});
     await signUp.verifications.sendEmailCode();
   };
 
@@ -233,6 +240,24 @@ export default function SignUpScreen() {
               </View>
 
               <Input
+                placeholder="Full name"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => emailRef.current?.focus()}
+                leftIcon={
+                  <Feather
+                    name="user"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
+                }
+              />
+
+              <Input
+                ref={emailRef}
                 placeholder="Email address"
                 value={email}
                 onChangeText={setEmail}
