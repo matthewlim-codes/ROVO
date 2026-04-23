@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useSignIn, useSSO } from "@clerk/expo";
 import * as AuthSession from "expo-auth-session";
+import { type Href, router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -33,7 +33,10 @@ function useWarmUpBrowser() {
 }
 
 function clerkErrorMessage(err: unknown): string {
-  const e = err as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+  const e = err as {
+    errors?: Array<{ message?: string; longMessage?: string }>;
+    message?: string;
+  };
   return (
     e?.errors?.[0]?.longMessage ||
     e?.errors?.[0]?.message ||
@@ -46,41 +49,44 @@ export default function LoginScreen() {
   useWarmUpBrowser();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn, errors, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const passwordRef = useRef<TextInput>(null);
 
+  const loading = fetchStatus === "fetching";
+
   const handleSubmit = async () => {
     setError("");
-    if (!isLoaded) return;
     if (!email.trim() || !password.trim()) {
       setError("Please fill in all fields.");
       return;
     }
-    setLoading(true);
-    try {
-      const attempt = await signIn.create({
-        identifier: email.trim(),
-        password,
+    const { error: signInError } = await signIn.password({
+      emailAddress: email.trim(),
+      password,
+    });
+    if (signInError) {
+      setError(signInError.message ?? "Sign-in failed.");
+      return;
+    }
+    if (signIn.status === "complete") {
+      await signIn.finalize({
+        navigate: ({ decorateUrl }) => {
+          const url = decorateUrl("/");
+          if (url.startsWith("http")) {
+            if (typeof window !== "undefined") window.location.href = url;
+          } else {
+            router.replace(url as Href);
+          }
+        },
       });
-      if (attempt.status === "complete") {
-        await setActive({ session: attempt.createdSessionId });
-        router.replace("/");
-      } else {
-        setError("Sign-in needs additional steps. Please try again.");
-      }
-    } catch (e) {
-      setError(clerkErrorMessage(e));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -88,13 +94,22 @@ export default function LoginScreen() {
     setError("");
     setGoogleLoading(true);
     try {
-      const { createdSessionId, setActive: setActiveFromSSO } = await startSSOFlow({
+      const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
         redirectUrl: AuthSession.makeRedirectUri(),
       });
-      if (createdSessionId && setActiveFromSSO) {
-        await setActiveFromSSO({ session: createdSessionId });
-        router.replace("/");
+      if (createdSessionId && setActive) {
+        await setActive({
+          session: createdSessionId,
+          navigate: async ({ decorateUrl }) => {
+            const url = decorateUrl("/");
+            if (url.startsWith("http")) {
+              if (typeof window !== "undefined") window.location.href = url;
+            } else {
+              router.replace(url as Href);
+            }
+          },
+        });
       }
     } catch (e) {
       setError(clerkErrorMessage(e));
@@ -102,6 +117,8 @@ export default function LoginScreen() {
       setGoogleLoading(false);
     }
   };
+
+  const fieldErrors = (errors as unknown as { fields?: Record<string, { message?: string }> })?.fields;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -114,14 +131,17 @@ export default function LoginScreen() {
             styles.scroll,
             {
               paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 40,
-              paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 40,
+              paddingBottom:
+                insets.bottom + (Platform.OS === "web" ? 34 : 0) + 40,
             },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
+            <View
+              style={[styles.logoMark, { backgroundColor: colors.primary }]}
+            >
               <Text style={styles.logoMarkText}>R</Text>
             </View>
             <Text style={[styles.brandName, { color: colors.foreground }]}>
@@ -152,17 +172,34 @@ export default function LoginScreen() {
               ]}
             >
               <Feather name="chrome" size={18} color={colors.foreground} />
-              <Text style={[styles.googleBtnText, { color: colors.foreground }]}>
+              <Text
+                style={[styles.googleBtnText, { color: colors.foreground }]}
+              >
                 {googleLoading ? "Opening Google…" : "Continue with Google"}
               </Text>
             </Pressable>
 
             <View style={styles.divider}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
+              <View
+                style={[
+                  styles.dividerLine,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.dividerText,
+                  { color: colors.mutedForeground },
+                ]}
+              >
                 or
               </Text>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <View
+                style={[
+                  styles.dividerLine,
+                  { backgroundColor: colors.border },
+                ]}
+              />
             </View>
 
             <Input
@@ -174,8 +211,19 @@ export default function LoginScreen() {
               autoCorrect={false}
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
-              leftIcon={<Feather name="mail" size={18} color={colors.mutedForeground} />}
+              leftIcon={
+                <Feather
+                  name="mail"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              }
             />
+            {fieldErrors?.identifier?.message ? (
+              <Text style={[styles.fieldError, { color: colors.destructive }]}>
+                {fieldErrors.identifier.message}
+              </Text>
+            ) : null}
 
             <Input
               ref={passwordRef}
@@ -185,7 +233,13 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
-              leftIcon={<Feather name="lock" size={18} color={colors.mutedForeground} />}
+              leftIcon={
+                <Feather
+                  name="lock"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              }
               rightIcon={
                 <Pressable onPress={() => setShowPassword(!showPassword)}>
                   <Feather
@@ -196,11 +250,24 @@ export default function LoginScreen() {
                 </Pressable>
               }
             />
+            {fieldErrors?.password?.message ? (
+              <Text style={[styles.fieldError, { color: colors.destructive }]}>
+                {fieldErrors.password.message}
+              </Text>
+            ) : null}
 
             {error ? (
-              <View style={[styles.errorBox, { backgroundColor: "#FEF2F2" }]}>
-                <Feather name="alert-circle" size={14} color={colors.destructive} />
-                <Text style={[styles.errorText, { color: colors.destructive }]}>
+              <View
+                style={[styles.errorBox, { backgroundColor: "#FEF2F2" }]}
+              >
+                <Feather
+                  name="alert-circle"
+                  size={14}
+                  color={colors.destructive}
+                />
+                <Text
+                  style={[styles.errorText, { color: colors.destructive }]}
+                >
                   {error}
                 </Text>
               </View>
@@ -215,10 +282,12 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.switchRow}>
-            <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.switchText, { color: colors.mutedForeground }]}
+            >
               Don't have an account?
             </Text>
-            <Pressable onPress={() => router.push("/sign-up")}>
+            <Pressable onPress={() => router.push("/sign-up" as Href)}>
               <Text style={[styles.switchLink, { color: colors.foreground }]}>
                 Sign up
               </Text>
@@ -262,9 +331,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   googleBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 4,
+  },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  fieldError: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: -4,
+  },
   errorBox: {
     flexDirection: "row",
     alignItems: "flex-start",
