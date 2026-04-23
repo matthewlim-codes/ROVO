@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/context/AuthContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -60,6 +61,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, errors, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
+  const { enterGuestMode } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -251,6 +253,15 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Pressable onPress={enterGuestMode} style={styles.skipRow}>
+            <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
+              Skip for now
+            </Text>
+            <Text style={[styles.skipBadge, { color: colors.mutedForeground, borderColor: colors.border }]}>
+              temporary
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -287,4 +298,7 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: "row", justifyContent: "center", gap: 6 },
   switchText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   switchLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" },
+  skipRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 8 },
+  skipText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  skipBadge: { fontSize: 10, fontFamily: "Inter_500Medium", borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, textTransform: "uppercase", letterSpacing: 0.5 },
 });

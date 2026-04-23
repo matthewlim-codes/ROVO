@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/expo";
 import React, {
   createContext,
@@ -9,6 +10,18 @@ import React, {
 } from "react";
 import { ApiError, NetworkError, apiFetch, setAuthTokenGetter } from "../utils/api";
 import { registerForPushAndUpload } from "../utils/push";
+
+const GUEST_MODE_KEY = "__guest_mode__";
+
+const GUEST_USER: User = {
+  id: "guest",
+  email: "",
+  name: "Guest",
+  club: "",
+  team: "",
+  clubCodeEntered: true,
+  isAdmin: false,
+};
 
 export class InvalidClubCodeError extends Error {
   constructor() {
@@ -71,6 +84,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  enterGuestMode: () => Promise<void>;
   enterClubCode: (code: string) => Promise<void>;
   updateProfile: (updates: {
     name?: string;
@@ -89,7 +103,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestModeChecked, setGuestModeChecked] = useState(false);
   const lastSyncRef = useRef<string | null>(null);
+
+  // Check for persisted guest mode on mount
+  useEffect(() => {
+    AsyncStorage.getItem(GUEST_MODE_KEY).then((val) => {
+      if (val === "1") {
+        setGuestMode(true);
+        setUser(GUEST_USER);
+      }
+      setGuestModeChecked(true);
+    }).catch(() => {
+      setGuestModeChecked(true);
+    });
+  }, []);
 
   // Wire Clerk token into apiFetch as soon as we have a getter
   useEffect(() => {
@@ -100,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [getToken]);
 
   const refreshProfile = useCallback(async () => {
+    if (guestMode) return;
     if (!isSignedIn) {
       setUser(null);
       return;
@@ -113,10 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setProfileLoading(false);
     }
-  }, [isSignedIn]);
+  }, [guestMode, isSignedIn]);
 
   // Load profile when sign-in state changes
   useEffect(() => {
+    if (guestMode) return;
     if (!isLoaded) return;
     if (!isSignedIn) {
       setUser(null);
@@ -126,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (lastSyncRef.current === clerkUser?.id) return;
     lastSyncRef.current = clerkUser?.id ?? null;
     refreshProfile();
-  }, [isLoaded, isSignedIn, clerkUser?.id, refreshProfile]);
+  }, [guestMode, isLoaded, isSignedIn, clerkUser?.id, refreshProfile]);
 
   // Sync clerk display name/email into our profile if changed
   useEffect(() => {
@@ -159,7 +190,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
+  const enterGuestMode = useCallback(async () => {
+    await AsyncStorage.setItem(GUEST_MODE_KEY, "1");
+    setGuestMode(true);
+    setUser(GUEST_USER);
+  }, []);
+
   const logout = useCallback(async () => {
+    await AsyncStorage.removeItem(GUEST_MODE_KEY);
+    setGuestMode(false);
     try {
       await clerkSignOut();
     } catch {
@@ -222,7 +261,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const isLoading = !isLoaded || (!!isSignedIn && profileLoading && !user);
+  const isLoading =
+    !guestModeChecked ||
+    (!guestMode && (!isLoaded || (!!isSignedIn && profileLoading && !user)));
 
   return (
     <AuthContext.Provider
@@ -230,6 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         logout,
+        enterGuestMode,
         enterClubCode,
         updateProfile,
         refreshProfile,
