@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,7 +23,7 @@ export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
-  const { trips, selectedTournament, getMatches } = useTrip();
+  const { trips, tripsLoading, selectedTournament, getMatches } = useTrip();
   const { user } = useAuth();
   const [watching, setWatching] = useState(false);
   const [watchSubmitting, setWatchSubmitting] = useState(false);
@@ -60,9 +60,39 @@ export default function MatchesScreen() {
   };
 
   if (!trip) {
+    if (tripsLoading) {
+      return (
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+            Loading your trip…
+          </Text>
+        </View>
+      );
+    }
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.foreground }}>Trip not found.</Text>
+        <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
+          <Feather name="map-pin" size={28} color={colors.mutedForeground} />
+        </View>
+        <Text style={[styles.notFoundTitle, { color: colors.foreground }]}>
+          Trip not found
+        </Text>
+        <Text style={[styles.notFoundBody, { color: colors.mutedForeground }]}>
+          We couldn't find your trip details. Try submitting your travel info again.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.goBackBtn,
+            { backgroundColor: colors.foreground, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Feather name="arrow-left" size={16} color={colors.background} />
+          <Text style={[styles.goBackText, { color: colors.background }]}>
+            Go back
+          </Text>
+        </Pressable>
       </View>
     );
   }
@@ -373,6 +403,35 @@ const styles = StyleSheet.create({
   },
   watchingText: {
     fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    marginTop: 12,
+  },
+  notFoundTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  notFoundBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  goBackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 100,
+    marginTop: 8,
+  },
+  goBackText: {
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
 });

@@ -53,6 +53,7 @@ interface TripContextType {
   tournamentsError: string | null;
   refreshTournaments: () => Promise<void>;
   trips: Trip[];
+  tripsLoading: boolean;
   messages: Record<string, ChatMessage[]>;
   selectedTournament: Tournament | null;
   setSelectedTournament: (t: Tournament | null) => void;
@@ -185,6 +186,7 @@ function groupTripsIntoMatches(trips: Trip[], userTrip: Trip): MatchGroup[] {
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(DEMO_TRIPS);
+  const [tripsLoading, setTripsLoading] = useState(false);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [tournamentImages, setTournamentImages] = useState<
     Record<string, string>
@@ -196,6 +198,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
 
   const refreshServerTrips = useCallback(async (tournamentId: string) => {
+    setTripsLoading(true);
     try {
       const data = await apiFetch<
         Array<{
@@ -239,7 +242,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         );
         return [...kept, ...mapped];
       });
-    } catch {}
+    } catch {
+    } finally {
+      setTripsLoading(false);
+    }
   }, []);
 
   const refreshTournaments = useCallback(async () => {
@@ -300,21 +306,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }));
 
   const saveTrip = useCallback(async (tripData: Omit<Trip, "id">) => {
-    const newTrip: Trip = {
-      ...tripData,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    };
-    const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
-    const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
-    const withoutOld = stored.filter(
-      (t) =>
-        !(
-          t.userId === tripData.userId &&
-          t.tournamentId === tripData.tournamentId
-        )
-    );
-    withoutOld.push(newTrip);
-    await AsyncStorage.setItem(TRIPS_KEY, JSON.stringify(withoutOld));
+    const tempId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempTrip: Trip = { ...tripData, id: tempId };
+
     setTrips((prev) => {
       const filtered = prev.filter(
         (t) =>
@@ -323,24 +317,45 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             t.tournamentId === tripData.tournamentId
           )
       );
-      return [...filtered, newTrip];
+      return [...filtered, tempTrip];
     });
-    apiFetch("/trips", {
-      method: "POST",
-      body: JSON.stringify({
-        userId: tripData.userId,
-        userName: tripData.userName,
-        userTeam: tripData.userTeam,
-        tournamentId: tripData.tournamentId,
-        airport: tripData.airport,
-        hotel: tripData.hotel,
-        hotelPlaceId: tripData.hotelPlaceId,
-        datetime: tripData.datetime,
-        mode: tripData.mode,
-        baggageCount: tripData.baggageCount,
-      }),
-    }).catch(() => {});
-    return newTrip;
+
+    try {
+      const serverTrip = await apiFetch<{ id: string }>("/trips", {
+        method: "POST",
+        body: JSON.stringify({
+          tournamentId: tripData.tournamentId,
+          airport: tripData.airport,
+          hotel: tripData.hotel,
+          hotelPlaceId: tripData.hotelPlaceId,
+          datetime: tripData.datetime,
+          mode: tripData.mode,
+          baggageCount: tripData.baggageCount,
+        }),
+      });
+      const stableId = `srv-${serverTrip.id}`;
+      const finalTrip: Trip = { ...tripData, id: stableId };
+
+      setTrips((prev) => {
+        const filtered = prev.filter((t) => t.id !== tempId);
+        return [...filtered, finalTrip];
+      });
+
+      const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
+      const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
+      const updated = stored.filter(
+        (t) =>
+          !(
+            t.userId === tripData.userId &&
+            t.tournamentId === tripData.tournamentId
+          )
+      );
+      await AsyncStorage.setItem(TRIPS_KEY, JSON.stringify(updated));
+
+      return finalTrip;
+    } catch {
+      return tempTrip;
+    }
   }, []);
 
   const getUserTrip = useCallback(
@@ -394,6 +409,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         tournamentsError,
         refreshTournaments,
         trips,
+        tripsLoading,
         messages,
         selectedTournament,
         setSelectedTournament,
