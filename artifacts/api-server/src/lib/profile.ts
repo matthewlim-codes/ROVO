@@ -12,15 +12,20 @@ export async function getOrCreateProfile(userId: string) {
   if (existing.length) return existing[0];
   let name = "";
   let email = "";
-  try {
-    const u = await clerkClient.users.getUser(userId);
-    const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
-    name = fullName || u.username || "";
-    email =
-      u.primaryEmailAddress?.emailAddress ??
-      u.emailAddresses[0]?.emailAddress ??
-      "";
-  } catch {}
+  // Skip Clerk lookup for guest device IDs
+  if (!userId.startsWith("guest-")) {
+    try {
+      const u = await clerkClient.users.getUser(userId);
+      const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+      name = fullName || u.username || "";
+      email =
+        u.primaryEmailAddress?.emailAddress ??
+        u.emailAddresses[0]?.emailAddress ??
+        "";
+    } catch {}
+  } else {
+    name = "Guest";
+  }
   const [row] = await db
     .insert(userProfilesTable)
     .values({ userId, name, email })

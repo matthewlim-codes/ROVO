@@ -254,7 +254,7 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
-          <Pressable onPress={enterGuestMode} style={styles.skipRow}>
+          <Pressable onPress={async () => { await enterGuestMode(); router.replace("/tournaments"); }} style={styles.skipRow}>
             <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
               Skip for now
             </Text>

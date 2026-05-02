@@ -11,12 +11,19 @@ export function requireAuth(
   next: NextFunction,
 ): void {
   const auth = getAuth(req);
-  if (!auth?.userId) {
-    res.status(401).json({ error: "Unauthorized" });
+  if (auth?.userId) {
+    (req as AuthedRequest).authUserId = auth.userId;
+    next();
     return;
   }
-  (req as AuthedRequest).authUserId = auth.userId;
-  next();
+  // Allow guest access — device-generated ID passed from mobile
+  const guestId = req.headers["x-guest-id"];
+  if (typeof guestId === "string" && guestId.startsWith("guest-")) {
+    (req as AuthedRequest).authUserId = guestId;
+    next();
+    return;
+  }
+  res.status(401).json({ error: "Unauthorized" });
 }
 
 export function getUserId(req: Request): string {

@@ -11,9 +11,14 @@ export function resolveUrl(path: string | null | undefined): string | undefined 
 }
 
 let tokenGetter: (() => Promise<string | null>) | null = null;
+let currentGuestId: string | null = null;
 
 export function setAuthTokenGetter(getter: (() => Promise<string | null>) | null) {
   tokenGetter = getter;
+}
+
+export function setGuestId(id: string | null) {
+  currentGuestId = id;
 }
 
 export function getAdminUrl(): string {
@@ -61,6 +66,8 @@ export async function apiFetch<T>(
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+  } else if (currentGuestId) {
+    headers["X-Guest-Id"] = currentGuestId;
   }
   let res: Response;
   try {
