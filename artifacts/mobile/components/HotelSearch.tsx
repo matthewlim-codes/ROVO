@@ -2,9 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -225,10 +225,7 @@ export function HotelSearch({
       ) : null}
 
       {showResults && results.length > 0 ? (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.placeId}
-          scrollEnabled={results.length > 4}
+        <ScrollView
           style={[
             styles.resultList,
             {
@@ -238,8 +235,12 @@ export function HotelSearch({
             },
           ]}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item, index }) => (
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {results.map((item, index) => (
             <Pressable
+              key={item.placeId}
               onPress={() => handleSelect(item)}
               style={({ pressed }) => [
                 styles.resultItem,
@@ -280,8 +281,8 @@ export function HotelSearch({
                 </View>
               ) : null}
             </Pressable>
-          )}
-        />
+          ))}
+        </ScrollView>
       ) : showResults && !loading && hasApiKey ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           No hotels found in {city}.
