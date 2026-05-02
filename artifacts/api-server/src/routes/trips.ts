@@ -5,7 +5,7 @@ import {
   rideWatchesTable,
   notificationsTable,
 } from "@workspace/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { sendPushToUsers } from "../lib/push";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
@@ -14,6 +14,7 @@ import { getOrCreateProfile } from "../lib/profile";
 const router = Router();
 
 const FORTY_FIVE_MIN_MS = 45 * 60 * 1000;
+const SIXTY_MIN_MS = 60 * 60 * 1000;
 
 const createTripBody = z.object({
   tournamentId: z.string().uuid(),
@@ -23,6 +24,7 @@ const createTripBody = z.object({
   datetime: z.string().transform((s) => new Date(s)),
   mode: z.enum(["arrival", "departure"]),
   baggageCount: z.number().int().nullable().optional(),
+  partySize: z.number().int().min(1).nullable().optional(),
 });
 
 router.get("/trips", async (req, res) => {
@@ -36,6 +38,46 @@ router.get("/trips", async (req, res) => {
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch trips" });
+  }
+});
+
+router.get("/trips/rideshare-matches", requireAuth, async (req, res) => {
+  const tripId = typeof req.query.tripId === "string" ? req.query.tripId : undefined;
+  if (!tripId) {
+    return res.status(400).json({ error: "tripId is required" });
+  }
+  try {
+    const [trip] = await db
+      .select()
+      .from(tripsTable)
+      .where(eq(tripsTable.id, tripId));
+
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+
+    const tripTime = new Date(trip.datetime).getTime();
+
+    const matches = await db
+      .select()
+      .from(tripsTable)
+      .where(
+        and(
+          eq(tripsTable.tournamentId, trip.tournamentId),
+          eq(tripsTable.airport, trip.airport),
+          eq(tripsTable.mode, "arrival"),
+          ne(tripsTable.userId, trip.userId),
+          sql`ABS(EXTRACT(EPOCH FROM (${tripsTable.datetime} - ${trip.datetime}::timestamptz)) * 1000) <= ${SIXTY_MIN_MS}`,
+        ),
+      );
+
+    const sorted = matches.sort(
+      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime(),
+    );
+
+    res.json(sorted);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch rideshare matches" });
   }
 });
 
@@ -71,6 +113,7 @@ router.post("/trips", requireAuth, async (req, res) => {
         datetime: parsed.data.datetime,
         mode: parsed.data.mode,
         baggageCount: parsed.data.baggageCount ?? null,
+        partySize: parsed.data.partySize ?? null,
       })
       .returning();
 

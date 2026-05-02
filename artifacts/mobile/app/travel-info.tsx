@@ -223,6 +223,7 @@ export default function TravelInfoScreen() {
   const [datetime, setDatetime] = useState(roundToNearestHalf(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [baggage, setBaggage] = useState("");
+  const [partySize, setPartySize] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -255,9 +256,10 @@ export default function TravelInfoScreen() {
         datetime: datetime.toISOString(),
         mode,
         baggageCount: baggage ? parseInt(baggage) : undefined,
+        partySize: partySize ? parseInt(partySize) : undefined,
       });
       router.push({
-        pathname: "/matches",
+        pathname: "/rideshare-matches",
         params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
       });
     } catch {
@@ -427,6 +429,32 @@ export default function TravelInfoScreen() {
               tournamentLocation={selectedTournament.location}
               onSelect={setHotel}
               selectedHotel={hotel}
+            />
+          </View>
+
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.card, borderRadius: 18 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionLabel, { color: colors.mutedForeground }]}
+            >
+              Party size (optional)
+            </Text>
+            <Input
+              placeholder="How many people in your party?"
+              value={partySize}
+              onChangeText={setPartySize}
+              keyboardType="number-pad"
+              leftIcon={
+                <Feather
+                  name="users"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              }
             />
           </View>
 

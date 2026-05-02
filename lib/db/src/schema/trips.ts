@@ -14,6 +14,7 @@ export const tripsTable = pgTable("trips", {
   datetime: timestamp("datetime", { withTimezone: true }).notNull(),
   mode: text("mode", { enum: ["arrival", "departure"] }).notNull(),
   baggageCount: integer("baggage_count"),
+  partySize: integer("party_size"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

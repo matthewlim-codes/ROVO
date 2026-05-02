@@ -36,6 +36,7 @@ export interface Trip {
   datetime: string;
   mode: "arrival" | "departure";
   baggageCount?: number;
+  partySize?: number;
 }
 
 export interface ChatMessage {
@@ -214,6 +215,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           datetime: string;
           mode: "arrival" | "departure";
           baggageCount: number | null;
+          partySize: number | null;
         }>
       >(`/trips?tournamentId=${encodeURIComponent(tournamentId)}`);
       const mapped: Trip[] = data.map((t) => ({
@@ -228,6 +230,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         datetime: t.datetime,
         mode: t.mode,
         baggageCount: t.baggageCount ?? undefined,
+        partySize: t.partySize ?? undefined,
       }));
       setTrips((prev) => {
         const serverKeys = new Set(
@@ -332,6 +335,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           datetime: tripData.datetime,
           mode: tripData.mode,
           baggageCount: tripData.baggageCount,
+          partySize: tripData.partySize,
         }),
       });
       const stableId = `srv-${serverTrip.id}`;

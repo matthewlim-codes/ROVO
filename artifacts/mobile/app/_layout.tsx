@@ -38,6 +38,7 @@ function RootLayoutNav() {
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="travel-info" />
       <Stack.Screen name="matches" />
+      <Stack.Screen name="rideshare-matches" />
       <Stack.Screen name="chat/[groupId]" />
     </Stack>
   );
