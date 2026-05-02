@@ -38,8 +38,9 @@ function formatTime(iso: string): string {
   });
 }
 
-function matchGroupId(match: RideshareMatch): string {
-  return `${match.tournamentId}-${match.airport}-${match.hotelPlaceId || match.hotel}-arrival`;
+function buildRideshareGroupId(myRawTripId: string, matchRawTripId: string): string {
+  const sorted = [myRawTripId, matchRawTripId].sort();
+  return `rs-${sorted[0]}__${sorted[1]}`;
 }
 
 export default function RideshareMatchesScreen() {
@@ -90,7 +91,7 @@ export default function RideshareMatchesScreen() {
   };
 
   const openDm = (match: RideshareMatch) => {
-    const groupId = matchGroupId(match);
+    const groupId = buildRideshareGroupId(rawTripId, match.id);
     router.push(`/chat/${groupId}`);
   };
 

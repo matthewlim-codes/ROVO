@@ -18,6 +18,14 @@ import { ChatMessage, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 import { formatMessageTime } from "@/utils/time";
 
+function parseRideshareGroupId(groupId: string): [string, string] | null {
+  if (!groupId.startsWith("rs-")) return null;
+  const inner = groupId.slice(3);
+  const sep = inner.indexOf("__");
+  if (sep === -1) return null;
+  return [inner.slice(0, sep), inner.slice(sep + 2)];
+}
+
 export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -31,23 +39,63 @@ export default function ChatScreen() {
 
   const messages = loadMessages(groupId ?? "");
 
+  const rideShareIds = groupId ? parseRideshareGroupId(groupId) : null;
+  const isRideshareDm = rideShareIds !== null;
+
   const groupTrips = trips.filter((t) => {
     const key = `${t.tournamentId}-${t.airport}-${t.hotelPlaceId || t.hotel}-${t.mode}`;
     return key === groupId;
   });
 
+  const rideshareTrips = isRideshareDm
+    ? trips.filter(
+        (t) =>
+          rideShareIds &&
+          (t.id === `srv-${rideShareIds[0]}` || t.id === `srv-${rideShareIds[1]}`),
+      )
+    : [];
+
+  const otherRideshareTrip = rideshareTrips.find((t) => t.userId !== user?.id);
+  const myRideshareTrip = rideshareTrips.find((t) => t.userId === user?.id);
+
   const familyCount = new Set(groupTrips.map((t) => t.userId)).size;
   const firstTrip = groupTrips[0];
 
+  const headerTitle = isRideshareDm
+    ? otherRideshareTrip
+      ? `Rideshare with ${otherRideshareTrip.userName}`
+      : "Rideshare"
+    : `${familyCount} ${familyCount === 1 ? "family" : "families"}`;
+
+  const headerSub = isRideshareDm
+    ? otherRideshareTrip
+      ? `${otherRideshareTrip.airport} · arrives ${new Date(otherRideshareTrip.datetime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+      : "Rideshare coordination"
+    : firstTrip
+      ? `${firstTrip.airport} → ${firstTrip.hotel}`
+      : "";
+
   useEffect(() => {
-    if (messages.length === 0 && firstTrip) {
-      sendMessage(groupId ?? "", {
-        groupId: groupId ?? "",
-        senderId: "system",
-        senderName: "ReadySetGo",
-        text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
-        timestamp: new Date().toISOString(),
-      });
+    if (messages.length === 0) {
+      if (isRideshareDm && (otherRideshareTrip || myRideshareTrip)) {
+        const airport = (otherRideshareTrip ?? myRideshareTrip)?.airport ?? "";
+        const otherName = otherRideshareTrip?.userName ?? "another family";
+        sendMessage(groupId ?? "", {
+          groupId: groupId ?? "",
+          senderId: "system",
+          senderName: "ReadySetGo",
+          text: `You matched with ${otherName} for a rideshare from ${airport}. Say hi and coordinate!`,
+          timestamp: new Date().toISOString(),
+        });
+      } else if (firstTrip) {
+        sendMessage(groupId ?? "", {
+          groupId: groupId ?? "",
+          senderId: "system",
+          senderName: "ReadySetGo",
+          text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   }, []);
 
@@ -171,28 +219,30 @@ export default function ChatScreen() {
         </Pressable>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {familyCount} {familyCount === 1 ? "family" : "families"}
+            {headerTitle}
           </Text>
           <Text
             style={[styles.headerSub, { color: colors.mutedForeground }]}
             numberOfLines={1}
           >
-            {firstTrip?.airport} → {firstTrip?.hotel}
+            {headerSub}
           </Text>
         </View>
-        <View
-          style={[
-            styles.onlinePill,
-            { backgroundColor: colors.accentSurface },
-          ]}
-        >
+        {!isRideshareDm && (
           <View
-            style={[styles.onlineDot, { backgroundColor: colors.accent }]}
-          />
-          <Text style={[styles.onlineText, { color: colors.accent }]}>
-            {familyCount}
-          </Text>
-        </View>
+            style={[
+              styles.onlinePill,
+              { backgroundColor: colors.accentSurface },
+            ]}
+          >
+            <View
+              style={[styles.onlineDot, { backgroundColor: colors.accent }]}
+            />
+            <Text style={[styles.onlineText, { color: colors.accent }]}>
+              {familyCount}
+            </Text>
+          </View>
+        )}
       </View>
 
       <KeyboardAvoidingView
