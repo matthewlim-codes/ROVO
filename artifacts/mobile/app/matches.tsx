@@ -15,24 +15,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MatchCard } from "@/components/MatchCard";
 import { useAuth } from "@/context/AuthContext";
-import { useTrip } from "@/context/TripContext";
+import { Trip, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
 
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
-  const { trips, tripsLoading, selectedTournament, getMatches } = useTrip();
+  const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
+  const { trips, tripsLoading, refreshTrips, selectedTournament, getMatches } = useTrip();
   const { user } = useAuth();
   const [watching, setWatching] = useState(false);
   const [watchSubmitting, setWatchSubmitting] = useState(false);
 
-  const trip = trips.find((t) => t.id === tripId);
+  const paramTrip: Trip | null = useMemo(() => {
+    if (!tripJson) return null;
+    try { return JSON.parse(tripJson) as Trip; } catch { return null; }
+  }, [tripJson]);
+
+  const trip = trips.find((t) => t.id === tripId) ?? paramTrip;
   const matches = useMemo(() => {
     if (!trip) return [];
     return getMatches(trip);
   }, [trip, getMatches]);
+
+  useEffect(() => {
+    if (selectedTournament?.id) {
+      refreshTrips(selectedTournament.id);
+    }
+  }, [selectedTournament?.id, refreshTrips]);
 
   const handleNotifyMe = async () => {
     if (!trip || !user) return;

@@ -54,6 +54,7 @@ interface TripContextType {
   refreshTournaments: () => Promise<void>;
   trips: Trip[];
   tripsLoading: boolean;
+  refreshTrips: (tournamentId: string) => Promise<void>;
   messages: Record<string, ChatMessage[]>;
   selectedTournament: Tournament | null;
   setSelectedTournament: (t: Tournament | null) => void;
@@ -410,6 +411,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         refreshTournaments,
         trips,
         tripsLoading,
+        refreshTrips: refreshServerTrips,
         messages,
         selectedTournament,
         setSelectedTournament,

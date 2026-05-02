@@ -256,7 +256,10 @@ export default function TravelInfoScreen() {
         mode,
         baggageCount: baggage ? parseInt(baggage) : undefined,
       });
-      router.push({ pathname: "/matches", params: { tripId: trip.id } });
+      router.push({
+        pathname: "/matches",
+        params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
