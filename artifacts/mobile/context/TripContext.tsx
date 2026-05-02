@@ -187,7 +187,7 @@ function groupTripsIntoMatches(trips: Trip[], userTrip: Trip): MatchGroup[] {
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(DEMO_TRIPS);
-  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsLoading, setTripsLoading] = useState(true);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [tournamentImages, setTournamentImages] = useState<
     Record<string, string>
@@ -344,14 +344,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
       const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
       const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
-      const updated = stored.filter(
+      const withoutOld = stored.filter(
         (t) =>
           !(
             t.userId === tripData.userId &&
             t.tournamentId === tripData.tournamentId
           )
       );
-      await AsyncStorage.setItem(TRIPS_KEY, JSON.stringify(updated));
+      withoutOld.push(finalTrip);
+      await AsyncStorage.setItem(TRIPS_KEY, JSON.stringify(withoutOld));
 
       return finalTrip;
     } catch {
