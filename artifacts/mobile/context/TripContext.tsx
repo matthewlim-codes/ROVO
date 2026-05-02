@@ -60,6 +60,7 @@ interface TripContextType {
   selectedTournament: Tournament | null;
   setSelectedTournament: (t: Tournament | null) => void;
   saveTrip: (trip: Omit<Trip, "id">) => Promise<Trip>;
+  deleteTrip: (tripId: string) => Promise<void>;
   getUserTrip: (userId: string, tournamentId: string) => Trip | null;
   getMatches: (trip: Trip) => MatchGroup[];
   sendMessage: (groupId: string, msg: Omit<ChatMessage, "id">) => Promise<void>;
@@ -364,6 +365,20 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const deleteTrip = useCallback(async (tripId: string) => {
+    const rawId = tripId.replace(/^srv-/, "");
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+    const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
+    const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
+    await AsyncStorage.setItem(
+      TRIPS_KEY,
+      JSON.stringify(stored.filter((t) => t.id !== tripId)),
+    );
+    try {
+      await apiFetch(`/trips/${rawId}`, { method: "DELETE" });
+    } catch {}
+  }, []);
+
   const getUserTrip = useCallback(
     (userId: string, tournamentId: string): Trip | null => {
       return (
@@ -421,6 +436,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         selectedTournament,
         setSelectedTournament,
         saveTrip,
+        deleteTrip,
         getUserTrip,
         getMatches,
         sendMessage,

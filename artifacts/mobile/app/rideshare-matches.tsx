@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -38,6 +39,14 @@ function formatTime(iso: string): string {
   });
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function buildRideshareGroupId(myRawTripId: string, matchRawTripId: string): string {
   const sorted = [myRawTripId, matchRawTripId].sort();
   return `rs-${sorted[0]}__${sorted[1]}`;
@@ -46,13 +55,15 @@ function buildRideshareGroupId(myRawTripId: string, matchRawTripId: string): str
 export default function RideshareMatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { selectedTournament, trips } = useTrip();
+  const { selectedTournament, trips, deleteTrip } = useTrip();
   const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
 
   const [matches, setMatches] = useState<RideshareMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const paramTrip: Trip | null = React.useMemo(() => {
     if (!tripJson) return null;
@@ -60,7 +71,6 @@ export default function RideshareMatchesScreen() {
   }, [tripJson]);
 
   const myTrip = trips.find((t) => t.id === tripId) ?? paramTrip;
-
   const rawTripId = tripId?.replace(/^srv-/, "") ?? "";
 
   const fetchMatches = useCallback(async () => {
@@ -71,7 +81,7 @@ export default function RideshareMatchesScreen() {
         `/trips/matches?tripId=${encodeURIComponent(rawTripId)}`,
       );
       setMatches(data);
-    } catch (e) {
+    } catch {
       setError("Couldn't load rideshare matches. Pull to refresh.");
     } finally {
       setLoading(false);
@@ -95,21 +105,27 @@ export default function RideshareMatchesScreen() {
     router.push(`/chat/${groupId}`);
   };
 
+  const handleCancelArrival = async () => {
+    if (!tripId) return;
+    setCancelling(true);
+    setSheetVisible(false);
+    await deleteTrip(tripId);
+    setCancelling(false);
+    router.replace("/tournaments");
+  };
+
+  const handleEditDetails = () => {
+    setSheetVisible(false);
+    router.push("/travel-info");
+  };
+
   const renderPrimaryCard = (primary: RideshareMatch, secondaries: RideshareMatch[]) => (
-    <View
-      key={primary.id}
-      style={[styles.card, { backgroundColor: colors.card }]}
-    >
+    <View key={primary.id} style={[styles.card, { backgroundColor: colors.card }]}>
       <Pressable
         onPress={() => openDm(primary)}
-        style={({ pressed }) => [
-          styles.primaryRow,
-          { opacity: pressed ? 0.85 : 1 },
-        ]}
+        style={({ pressed }) => [styles.primaryRow, { opacity: pressed ? 0.85 : 1 }]}
       >
-        <View
-          style={[styles.avatarCircle, { backgroundColor: colors.accentSurface }]}
-        >
+        <View style={[styles.avatarCircle, { backgroundColor: colors.accentSurface }]}>
           <Text style={[styles.avatarLetter, { color: colors.accent }]}>
             {primary.userName.charAt(0).toUpperCase()}
           </Text>
@@ -150,12 +166,7 @@ export default function RideshareMatchesScreen() {
           </View>
         </View>
 
-        <View
-          style={[
-            styles.messageBtn,
-            { backgroundColor: colors.primary },
-          ]}
-        >
+        <View style={[styles.messageBtn, { backgroundColor: colors.primary }]}>
           <Feather name="message-circle" size={16} color={colors.primaryForeground} />
         </View>
       </Pressable>
@@ -166,14 +177,9 @@ export default function RideshareMatchesScreen() {
             <Pressable
               key={s.id}
               onPress={() => openDm(s)}
-              style={({ pressed }) => [
-                styles.secondaryRow,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
+              style={({ pressed }) => [styles.secondaryRow, { opacity: pressed ? 0.8 : 1 }]}
             >
-              <View
-                style={[styles.secondaryAvatar, { backgroundColor: colors.muted }]}
-              >
+              <View style={[styles.secondaryAvatar, { backgroundColor: colors.muted }]}>
                 <Text style={[styles.secondaryAvatarLetter, { color: colors.mutedForeground }]}>
                   {s.userName.charAt(0).toUpperCase()}
                 </Text>
@@ -228,9 +234,11 @@ export default function RideshareMatchesScreen() {
   };
 
   const clusters = buildClusters();
+  const totalMatches = clusters.reduce((n, c) => n + 1 + c.secondaries.length, 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
       <View
         style={[
           styles.header,
@@ -248,39 +256,66 @@ export default function RideshareMatchesScreen() {
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
             Rideshare matches
           </Text>
-          <Text
-            style={[styles.headerSub, { color: colors.mutedForeground }]}
-            numberOfLines={1}
-          >
-            {selectedTournament?.name ?? ""}
-            {myTrip ? ` · ${myTrip.airport}` : ""}
-          </Text>
+          {selectedTournament && (
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {selectedTournament.name}
+            </Text>
+          )}
         </View>
-        <Pressable
-          onPress={() => router.push("/travel-info")}
-          style={[styles.editBtn, { backgroundColor: colors.muted }]}
-        >
-          <Feather name="edit-2" size={16} color={colors.foreground} />
-        </Pressable>
       </View>
 
+      {/* My trip banner — large and prominent */}
       {myTrip && (
-        <View
-          style={[
-            styles.myTripBanner,
-            { backgroundColor: colors.accentSurface, borderBottomColor: colors.accentBorder },
-          ]}
-        >
-          <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
-          <Text style={[styles.myTripText, { color: colors.foreground }]}>
-            Your arrival:{" "}
-            <Text style={{ fontFamily: "Inter_700Bold" }}>
-              {myTrip.airport} · {formatTime(myTrip.datetime)}
+        <View style={[styles.myTripCard, { backgroundColor: colors.accentSurface, borderBottomColor: colors.accentBorder }]}>
+          <View style={styles.myTripTop}>
+            <View style={[styles.livePill, { backgroundColor: colors.card }]}>
+              <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
+              <Text style={[styles.liveText, { color: colors.accent }]}>Your arrival</Text>
+            </View>
+          </View>
+
+          <View style={styles.myTripMain}>
+            <Text style={[styles.myTripAirport, { color: colors.foreground }]}>
+              {myTrip.airport}
             </Text>
-          </Text>
+            <View style={styles.myTripDetails}>
+              <View style={[styles.myTripBadge, { backgroundColor: colors.card }]}>
+                <Feather name="clock" size={14} color={colors.accent} />
+                <Text style={[styles.myTripBadgeText, { color: colors.foreground }]}>
+                  {formatTime(myTrip.datetime)}
+                </Text>
+              </View>
+              <View style={[styles.myTripBadge, { backgroundColor: colors.card }]}>
+                <Feather name="calendar" size={14} color={colors.accent} />
+                <Text style={[styles.myTripBadgeText, { color: colors.foreground }]}>
+                  {formatDate(myTrip.datetime)}
+                </Text>
+              </View>
+              {myTrip.partySize != null && (
+                <View style={[styles.myTripBadge, { backgroundColor: colors.card }]}>
+                  <Feather name="users" size={14} color={colors.accent} />
+                  <Text style={[styles.myTripBadgeText, { color: colors.foreground }]}>
+                    {myTrip.partySize} {myTrip.partySize === 1 ? "person" : "people"}
+                  </Text>
+                </View>
+              )}
+              {myTrip.baggageCount != null && (
+                <View style={[styles.myTripBadge, { backgroundColor: colors.card }]}>
+                  <Feather name="shopping-bag" size={14} color={colors.accent} />
+                  <Text style={[styles.myTripBadgeText, { color: colors.foreground }]}>
+                    {myTrip.baggageCount} {myTrip.baggageCount === 1 ? "bag" : "bags"}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.myTripHotel, { color: colors.mutedForeground }]} numberOfLines={1}>
+              → {myTrip.hotel}
+            </Text>
+          </View>
         </View>
       )}
 
+      {/* Content */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -292,18 +327,11 @@ export default function RideshareMatchesScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scroll,
-            {
-              paddingBottom:
-                insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20,
-            },
+            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 100 },
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.accent}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />
           }
         >
           {error ? (
@@ -317,12 +345,9 @@ export default function RideshareMatchesScreen() {
             <>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                  {clusters.reduce((n, c) => n + 1 + c.secondaries.length, 0)} match
-                  {clusters.reduce((n, c) => n + 1 + c.secondaries.length, 0) !== 1 ? "es" : ""} found
+                  {totalMatches} match{totalMatches !== 1 ? "es" : ""} found
                 </Text>
-                <View
-                  style={[styles.livePill, { backgroundColor: colors.accentSurface }]}
-                >
+                <View style={[styles.matchLivePill, { backgroundColor: colors.accentSurface }]}>
                   <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
                   <Text style={[styles.liveText, { color: colors.accent }]}>Live</Text>
                 </View>
@@ -340,25 +365,141 @@ export default function RideshareMatchesScreen() {
                 No rideshare matches yet
               </Text>
               <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-                No one else has registered an arrival at {myTrip?.airport ?? "this airport"} within an
-                hour of your flight. Check back as more families sign up.
+                No one else has registered an arrival at {myTrip?.airport ?? "this airport"} within
+                an hour of your flight. Check back as more families sign up.
               </Text>
             </View>
           )}
         </ScrollView>
       )}
+
+      {/* FAB — bottom right */}
+      <View
+        style={[
+          styles.fab,
+          { bottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20 },
+        ]}
+      >
+        <Pressable
+          onPress={() => setSheetVisible(true)}
+          style={({ pressed }) => [
+            styles.fabBtn,
+            {
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.95 : 1 }],
+            },
+          ]}
+        >
+          {cancelling ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Feather name="edit-2" size={18} color="#fff" />
+              <Text style={styles.fabLabel}>Edit trip</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Action sheet modal */}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSheetVisible(false)}
+      >
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => setSheetVisible(false)}
+        />
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.card,
+              paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 8,
+            },
+          ]}
+        >
+          <View style={[styles.sheetHandle, { backgroundColor: colors.muted }]} />
+
+          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+            Manage your arrival
+          </Text>
+
+          <Pressable
+            onPress={handleEditDetails}
+            style={({ pressed }) => [
+              styles.sheetAction,
+              { backgroundColor: pressed ? colors.muted : colors.background, borderRadius: 14 },
+            ]}
+          >
+            <View style={[styles.sheetActionIcon, { backgroundColor: colors.muted }]}>
+              <Feather name="map-pin" size={18} color={colors.foreground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetActionTitle, { color: colors.foreground }]}>
+                Change airport
+              </Text>
+              <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
+                Update your arrival airport
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
+
+          <Pressable
+            onPress={handleEditDetails}
+            style={({ pressed }) => [
+              styles.sheetAction,
+              { backgroundColor: pressed ? colors.muted : colors.background, borderRadius: 14 },
+            ]}
+          >
+            <View style={[styles.sheetActionIcon, { backgroundColor: colors.muted }]}>
+              <Feather name="users" size={18} color={colors.foreground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetActionTitle, { color: colors.foreground }]}>
+                Change party size or bags
+              </Text>
+              <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
+                Update how many people and bags
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
+
+          <View style={[styles.sheetDivider, { backgroundColor: colors.separator }]} />
+
+          <Pressable
+            onPress={handleCancelArrival}
+            style={({ pressed }) => [
+              styles.sheetAction,
+              { backgroundColor: pressed ? "#FEF2F2" : colors.background, borderRadius: 14 },
+            ]}
+          >
+            <View style={[styles.sheetActionIcon, { backgroundColor: "#FEF2F2" }]}>
+              <Feather name="x-circle" size={18} color={colors.destructive} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetActionTitle, { color: colors.destructive }]}>
+                Cancel my arrival
+              </Text>
+              <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
+                Remove your trip and stop matching
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   header: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -367,57 +508,56 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
+  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
+  headerSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 1 },
+
+  myTripCard: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    gap: 12,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 1,
-  },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  myTripBanner: {
+  myTripTop: { flexDirection: "row", alignItems: "center" },
+  livePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
   },
-  myTripText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
+  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  liveText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  myTripMain: { gap: 10 },
+  myTripAirport: {
+    fontSize: 48,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -2,
+    lineHeight: 52,
   },
-  scroll: {
-    padding: 16,
-    gap: 0,
+  myTripDetails: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  myTripBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
+  myTripBadgeText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  myTripHotel: { fontSize: 14, fontFamily: "Inter_400Regular" },
+
+  scroll: { padding: 16, gap: 0 },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.3,
-  },
-  livePill: {
+  sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  matchLivePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
@@ -425,15 +565,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 100,
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
+
   card: {
     borderRadius: 20,
     marginBottom: 12,
@@ -441,12 +573,7 @@ const styles = StyleSheet.create({
     boxShadow: "0px 2px 12px rgba(0,0,0,0.07)",
     elevation: 3,
   },
-  primaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-  },
+  primaryRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
   avatarCircle: {
     width: 44,
     height: 44,
@@ -455,20 +582,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  avatarLetter: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
-  headline: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 21,
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
+  avatarLetter: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  headline: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 21 },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   metaBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -477,10 +593,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 100,
   },
-  metaText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
+  metaText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   messageBtn: {
     width: 36,
     height: 36,
@@ -489,9 +602,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  secondaryList: {
-    borderTopWidth: 1,
-  },
+  secondaryList: { borderTopWidth: 1 },
   secondaryRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -506,19 +617,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryAvatarLetter: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
-  secondaryName: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    flex: 1,
-  },
-  secondaryTime: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
+  secondaryAvatarLetter: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  secondaryName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
+  secondaryTime: { fontSize: 13, fontFamily: "Inter_400Regular" },
   secondaryBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -527,10 +628,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 100,
   },
-  secondaryBadgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
+  secondaryBadgeText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -545,21 +644,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
+  emptyTitle: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "center" },
   emptyBody: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 22,
   },
-  loadingText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
+  loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -567,9 +659,77 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
+  errorText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+
+  fab: {
+    position: "absolute",
+    right: 20,
+  },
+  fabBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 100,
+    boxShadow: "0px 4px 16px rgba(0,0,0,0.2)",
+    elevation: 6,
+  },
+  fabLabel: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+
+  backdrop: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 6,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    paddingHorizontal: 4,
+    marginBottom: 6,
+  },
+  sheetAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+  },
+  sheetActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetActionTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  sheetActionSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  sheetDivider: {
+    height: 1,
+    marginVertical: 4,
+    marginHorizontal: 4,
   },
 });

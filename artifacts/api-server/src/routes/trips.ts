@@ -172,4 +172,25 @@ router.post("/trips", requireAuth, async (req, res) => {
   }
 });
 
+router.delete("/trips/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const userId = getUserId(req);
+  try {
+    const [trip] = await db
+      .select()
+      .from(tripsTable)
+      .where(eq(tripsTable.id, id));
+    if (!trip) {
+      return res.status(404).json({ error: "Trip not found" });
+    }
+    if (trip.userId !== userId) {
+      return res.status(403).json({ error: "Not your trip" });
+    }
+    await db.delete(tripsTable).where(eq(tripsTable.id, id));
+    res.status(204).end();
+  } catch (e) {
+    res.status(500).json({ error: "Failed to delete trip" });
+  }
+});
+
 export default router;
