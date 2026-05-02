@@ -14,7 +14,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Trip, useTrip } from "@/context/TripContext";
-import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
 
@@ -23,8 +22,10 @@ interface RideshareMatch {
   userId: string;
   userName: string;
   userTeam: string | null;
+  tournamentId: string;
   airport: string;
   hotel: string;
+  hotelPlaceId: string | null;
   datetime: string;
   baggageCount: number | null;
   partySize: number | null;
@@ -37,15 +38,13 @@ function formatTime(iso: string): string {
   });
 }
 
-function buildDmGroupId(userId1: string, userId2: string, tournamentId: string): string {
-  const sorted = [userId1, userId2].sort();
-  return `rs-${sorted[0].slice(0, 8)}-${sorted[1].slice(0, 8)}-${tournamentId.slice(0, 8)}`;
+function matchGroupId(match: RideshareMatch): string {
+  return `${match.tournamentId}-${match.airport}-${match.hotelPlaceId || match.hotel}-arrival`;
 }
 
 export default function RideshareMatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const { selectedTournament, trips } = useTrip();
   const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
 
@@ -91,8 +90,7 @@ export default function RideshareMatchesScreen() {
   };
 
   const openDm = (match: RideshareMatch) => {
-    if (!user || !myTrip) return;
-    const groupId = buildDmGroupId(user.id, match.userId, myTrip.tournamentId);
+    const groupId = matchGroupId(match);
     router.push(`/chat/${groupId}`);
   };
 

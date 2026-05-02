@@ -258,10 +258,17 @@ export default function TravelInfoScreen() {
         baggageCount: baggage ? parseInt(baggage) : undefined,
         partySize: partySize ? parseInt(partySize) : undefined,
       });
-      router.push({
-        pathname: "/rideshare-matches",
-        params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
-      });
+      if (mode === "arrival") {
+        router.push({
+          pathname: "/rideshare-matches",
+          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+        });
+      } else {
+        router.push({
+          pathname: "/matches",
+          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+        });
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
