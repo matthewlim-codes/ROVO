@@ -19,6 +19,7 @@ const GUEST_USER: User = {
   name: "Guest",
   club: "",
   team: "",
+  userTeamName: "",
   clubCodeEntered: true,
   isAdmin: false,
 };
@@ -43,6 +44,7 @@ export interface User {
   name: string;
   club: string;
   team: string;
+  userTeamName: string;
   clubCodeEntered: boolean;
   avatarUri?: string;
   isAdmin?: boolean;
@@ -63,6 +65,7 @@ interface ServerProfile {
   email: string;
   club: string;
   team: string;
+  userTeamName: string;
   clubCodeEntered: string;
   avatarUri: string | null;
 }
@@ -74,6 +77,7 @@ function profileToUser(p: ServerProfile): User {
     name: p.name,
     club: p.club,
     team: p.team,
+    userTeamName: p.userTeamName ?? "",
     clubCodeEntered: p.clubCodeEntered === "true",
     avatarUri: p.avatarUri ?? undefined,
     isAdmin: isAdminEmail(p.email),
@@ -90,6 +94,7 @@ interface AuthContextType {
     name?: string;
     email?: string;
     avatarUri?: string | null;
+    userTeamName?: string;
   }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -246,12 +251,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name?: string;
       email?: string;
       avatarUri?: string | null;
+      userTeamName?: string;
     }) => {
       if (!user) return;
       const body: Record<string, unknown> = {};
       if (updates.name !== undefined) body.name = updates.name?.trim();
       if (updates.email !== undefined) body.email = updates.email?.trim();
       if (updates.avatarUri !== undefined) body.avatarUri = updates.avatarUri;
+      if (updates.userTeamName !== undefined) body.userTeamName = updates.userTeamName?.trim();
       const updated = await apiFetch<ServerProfile>("/profile", {
         method: "PUT",
         body: JSON.stringify(body),

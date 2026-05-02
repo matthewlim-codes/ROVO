@@ -167,7 +167,7 @@ export default function TournamentsScreen() {
       >
         <View style={[styles.clubDot, { backgroundColor: colors.accent }]} />
         <Text style={[styles.clubText, { color: colors.accent }]}>
-          {user?.club} · {user?.team}
+          {user?.club}{user?.userTeamName ? ` - ${user.userTeamName}` : ""}
         </Text>
       </View>
 

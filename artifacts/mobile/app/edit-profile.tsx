@@ -28,6 +28,7 @@ export default function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const [userTeamName, setUserTeamName] = useState(user?.userTeamName ?? "");
   const [avatarUri, setAvatarUri] = useState<string | undefined | null>(
     user?.avatarUri
   );
@@ -91,6 +92,7 @@ export default function EditProfileScreen() {
         email,
         avatarUri:
           avatarUri === null ? null : avatarUri ?? user?.avatarUri,
+        userTeamName,
       });
       router.back();
     } catch (e) {
@@ -264,10 +266,30 @@ export default function EditProfileScreen() {
             <Text style={{ color: colors.foreground }}>
               {user?.club || "—"}
             </Text>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-              {user?.team || ""}
-            </Text>
           </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Team name
+          </Text>
+          <TextInput
+            value={userTeamName}
+            onChangeText={setUserTeamName}
+            style={[
+              styles.input,
+              {
+                color: colors.foreground,
+                backgroundColor: colors.card,
+                borderColor: colors.separator,
+              },
+            ]}
+            placeholder="e.g. 14 Gold"
+            placeholderTextColor={colors.mutedForeground}
+          />
+          <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
+            Shown next to your club name on the tournaments page
+          </Text>
         </View>
 
         {user?.isAdmin ? (
@@ -448,6 +470,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   field: { gap: 6 },
+  fieldHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
   label: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",

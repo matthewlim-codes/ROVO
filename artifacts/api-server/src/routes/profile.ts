@@ -105,6 +105,9 @@ router.put("/profile", requireAuth, async (req, res) => {
     if (parsed.data.avatarUri !== undefined) {
       updates.avatarUri = parsed.data.avatarUri;
     }
+    if (parsed.data.userTeamName !== undefined) {
+      updates.userTeamName = parsed.data.userTeamName;
+    }
     const [row] = await db
       .update(userProfilesTable)
       .set(updates)
