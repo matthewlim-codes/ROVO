@@ -68,7 +68,7 @@ export default function RideshareMatchesScreen() {
     setError("");
     try {
       const data = await apiFetch<RideshareMatch[]>(
-        `/trips/rideshare-matches?tripId=${encodeURIComponent(rawTripId)}`,
+        `/trips/matches?tripId=${encodeURIComponent(rawTripId)}`,
       );
       setMatches(data);
     } catch (e) {
@@ -212,13 +212,14 @@ export default function RideshareMatchesScreen() {
       if (assigned.has(candidate.id)) continue;
       const cluster = { primary: candidate, secondaries: [] as RideshareMatch[] };
       assigned.add(candidate.id);
-      const primaryTime = new Date(candidate.datetime).getTime();
+      let lastTime = new Date(candidate.datetime).getTime();
       for (const other of sorted) {
         if (assigned.has(other.id)) continue;
-        const diff = Math.abs(new Date(other.datetime).getTime() - primaryTime);
-        if (diff <= 60 * 60 * 1000) {
+        const otherTime = new Date(other.datetime).getTime();
+        if (otherTime - lastTime <= 60 * 60 * 1000) {
           cluster.secondaries.push(other);
           assigned.add(other.id);
+          lastTime = otherTime;
         }
       }
       clusters.push(cluster);

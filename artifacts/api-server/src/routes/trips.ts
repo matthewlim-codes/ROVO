@@ -41,7 +41,7 @@ router.get("/trips", async (req, res) => {
   }
 });
 
-router.get("/trips/rideshare-matches", requireAuth, async (req, res) => {
+router.get("/trips/matches", requireAuth, async (req, res) => {
   const tripId = typeof req.query.tripId === "string" ? req.query.tripId : undefined;
   if (!tripId) {
     return res.status(400).json({ error: "tripId is required" });
