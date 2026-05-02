@@ -21,6 +21,7 @@ import {
   Tournament,
   TournamentGender,
   useTrip,
+  Trip,
 } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -43,9 +44,14 @@ export default function TournamentsScreen() {
     refreshTournaments,
     setSelectedTournament,
     setTournamentImage,
+    trips,
   } = useTrip();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
+
+  const myArrivalTrip: Trip | null = user
+    ? (trips.find((t) => t.userId === user.id && t.mode === "arrival") ?? null)
+    : null;
 
   const filteredTournaments = useMemo(() => {
     if (genderFilter === "all") return tournaments;
@@ -57,6 +63,13 @@ export default function TournamentsScreen() {
   const handleSelect = (t: Tournament) => {
     setSelectedTournament(t);
     router.push("/travel-info");
+  };
+
+  const handleViewRideshareMatches = () => {
+    if (!myArrivalTrip) return;
+    const tournament = tournaments.find((t) => t.id === myArrivalTrip.tournamentId);
+    if (tournament) setSelectedTournament(tournament);
+    router.push(`/rideshare-matches?tripId=${encodeURIComponent(myArrivalTrip.id)}`);
   };
 
   const handlePickImage = async (tournamentId: string) => {
@@ -171,34 +184,6 @@ export default function TournamentsScreen() {
         </Text>
       </View>
 
-      <View style={styles.filterRow}>
-        {GENDER_TABS.map((tab) => {
-          const active = genderFilter === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => setGenderFilter(tab.key)}
-              style={[
-                styles.filterPill,
-                {
-                  backgroundColor: active ? colors.primary : colors.muted,
-                  borderColor: active ? colors.primary : colors.separator,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  { color: active ? "#fff" : colors.foreground },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
       <FlatList
         data={filteredTournaments}
         keyExtractor={(item) => item.id}
@@ -210,6 +195,63 @@ export default function TournamentsScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <>
+            <View style={styles.filterRow}>
+              {GENDER_TABS.map((tab) => {
+                const active = genderFilter === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => setGenderFilter(tab.key)}
+                    style={[
+                      styles.filterPill,
+                      {
+                        backgroundColor: active ? colors.primary : colors.muted,
+                        borderColor: active ? colors.primary : colors.separator,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterPillText,
+                        { color: active ? "#fff" : colors.foreground },
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {myArrivalTrip && (
+              <Pressable
+                onPress={handleViewRideshareMatches}
+                style={({ pressed }) => [
+                  styles.rideshareCard,
+                  {
+                    backgroundColor: colors.accentSurface,
+                    borderColor: colors.accentBorder,
+                    opacity: pressed ? 0.88 : 1,
+                  },
+                ]}
+              >
+                <View style={[styles.rideshareIconWrap, { backgroundColor: colors.accent }]}>
+                  <Feather name="users" size={18} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rideshareTitle, { color: colors.foreground }]}>
+                    View rideshare matches
+                  </Text>
+                  <Text style={[styles.rideShareSub, { color: colors.mutedForeground }]}>
+                    {myArrivalTrip.airport} · arrival saved
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={colors.accent} />
+              </Pressable>
+            )}
+          </>
+        }
         renderItem={({ item }) => (
           <TournamentCard
             item={item}
@@ -639,9 +681,34 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 4,
+  },
+  rideshareCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+  },
+  rideshareIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  rideshareTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  rideShareSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
   filterPill: {
     paddingHorizontal: 16,
