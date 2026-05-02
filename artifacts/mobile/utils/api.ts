@@ -1,5 +1,14 @@
 const domain = process.env.EXPO_PUBLIC_DOMAIN ?? "";
 export const API_BASE = domain ? `https://${domain}/api` : "/api";
+export const ORIGIN = domain ? `https://${domain}` : "";
+
+/** Turns a server-relative path (e.g. /api/static/…) into a full URL on device. */
+export function resolveUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  if (/^https?:\/\//.test(path)) return path;
+  if (ORIGIN) return `${ORIGIN}${path}`;
+  return path;
+}
 
 let tokenGetter: (() => Promise<string | null>) | null = null;
 

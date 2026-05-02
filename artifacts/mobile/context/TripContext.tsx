@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 
-import { apiFetch } from "@/utils/api";
+import { apiFetch, resolveUrl } from "@/utils/api";
 
 export type TournamentGender = "boys" | "girls" | "coed";
 
@@ -307,7 +307,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   const tournamentsWithImages: Tournament[] = tournaments.map((t) => ({
     ...t,
-    imageUri: tournamentImages[t.id] ?? t.imageUri ?? t.imageUrl ?? undefined,
+    imageUri: tournamentImages[t.id] ?? t.imageUri ?? resolveUrl(t.imageUrl),
   }));
 
   const saveTrip = useCallback(async (tripData: Omit<Trip, "id">) => {
