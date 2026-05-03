@@ -511,8 +511,37 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+async function buildWebExport(domain) {
+  console.log("Building Expo web export...");
+  const env = {
+    ...process.env,
+    EXPO_PUBLIC_DOMAIN: domain,
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:
+      process.env.CLERK_PUBLISHABLE_KEY ||
+      process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+      "",
+    EXPO_PUBLIC_REPL_ID: getExpoPublicReplId() || "",
+    EXPO_PUBLIC_ADMIN_EMAILS: process.env.EXPO_PUBLIC_ADMIN_EMAILS || "",
+  };
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn(
+      "pnpm",
+      ["exec", "expo", "export", "--platform", "web"],
+      { stdio: "inherit", cwd: projectRoot, env },
+    );
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`expo export --platform web exited with code ${code}`));
+    });
+    proc.on("error", reject);
+  });
+
+  console.log("Web export complete — output in dist/");
+}
+
 async function main() {
-  console.log("Building static Expo Go deployment...");
+  console.log("Building Rovo deployment (native + web)...");
 
   setupSignalHandlers();
 
@@ -559,14 +588,17 @@ async function main() {
     updateBundleUrls(timestamp, baseUrl);
   }
 
-  console.log("Updating manifests and creating landing page...");
+  console.log("Updating manifests...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
-
-  console.log("Build complete! Deploy to:", baseUrl);
 
   if (metroProcess) {
     metroProcess.kill();
+    metroProcess = null;
   }
+
+  await buildWebExport(domain);
+
+  console.log("Build complete! Deploy to:", baseUrl);
   process.exit(0);
 }
 
