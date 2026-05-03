@@ -93,7 +93,7 @@ export default function ChatScreen() {
           sendMessage(groupId, {
             groupId,
             senderId: "system",
-            senderName: "ReadySetGo",
+            senderName: "Rovo",
             text: `You matched with ${otherName} for a rideshare from ${airport}. Say hi and coordinate!`,
             timestamp: new Date().toISOString(),
           });
@@ -101,7 +101,7 @@ export default function ChatScreen() {
           sendMessage(groupId, {
             groupId,
             senderId: "system",
-            senderName: "ReadySetGo",
+            senderName: "Rovo",
             text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
             timestamp: new Date().toISOString(),
           });

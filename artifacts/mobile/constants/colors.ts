@@ -1,5 +1,5 @@
 /**
- * ReadySetGo — Uber-inspired design tokens
+ * Rovo — Uber-inspired design tokens
  *
  * Primary: near-black (#0A0A0A) — commands attention, signals trust
  * Background: soft off-white (#F6F6F6) — airy, light, familiar

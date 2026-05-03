@@ -140,12 +140,9 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
-              <Text style={styles.logoMarkText}>R</Text>
+            <View style={styles.logoPill}>
+              <Text style={styles.logoText}>ROVO</Text>
             </View>
-            <Text style={[styles.brandName, { color: colors.foreground }]}>
-              ReadySetGo
-            </Text>
           </View>
 
           <View style={styles.heading}>
@@ -271,13 +268,19 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, gap: 32 },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logoMark: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: "center", justifyContent: "center",
+  brand: { alignItems: "flex-start" },
+  logoPill: {
+    backgroundColor: "#0A0A0A",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
-  logoMarkText: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-  brandName: { fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
+  logoText: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    letterSpacing: 3,
+  },
   heading: { gap: 6 },
   title: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.8, lineHeight: 38 },
   subtitle: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 22 },

@@ -20,7 +20,7 @@ export function requireAdminAuth(
   const sendChallenge = (message: string, status = 401) => {
     res.setHeader(
       "WWW-Authenticate",
-      'Basic realm="ReadySetGo Admin", charset="UTF-8"',
+      'Basic realm="Rovo Admin", charset="UTF-8"',
     );
     res.status(status).type("text/plain").send(message);
   };

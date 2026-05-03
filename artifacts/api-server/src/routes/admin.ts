@@ -8,7 +8,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ReadySetGo Admin</title>
+<title>Rovo Admin</title>
 <style>
   :root {
     --bg: #F6F6F6;
@@ -69,7 +69,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <header>
   <div class="logo">R</div>
   <div>
-    <h1>ReadySetGo Admin</h1>
+    <h1>Rovo Admin</h1>
   </div>
   <span style="margin-left:auto">Manage clubs, codes &amp; tournaments</span>
 </header>
