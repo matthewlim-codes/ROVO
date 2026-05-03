@@ -48,6 +48,13 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface Conversation {
+  groupId: string;
+  lastMessage: string;
+  lastSenderName: string;
+  lastTimestamp: string;
+}
+
 interface TripContextType {
   tournaments: Tournament[];
   tournamentsLoading: boolean;
@@ -64,7 +71,9 @@ interface TripContextType {
   getUserTrip: (userId: string, tournamentId: string) => Trip | null;
   getMatches: (trip: Trip) => MatchGroup[];
   sendMessage: (groupId: string, msg: Omit<ChatMessage, "id">) => Promise<void>;
+  fetchMessages: (groupId: string) => Promise<void>;
   loadMessages: (groupId: string) => ChatMessage[];
+  fetchConversations: () => Promise<Conversation[]>;
   setTournamentImage: (tournamentId: string, uri: string) => Promise<void>;
 }
 
@@ -399,21 +408,89 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
   const sendMessage = useCallback(
     async (groupId: string, msg: Omit<ChatMessage, "id">) => {
-      const newMsg: ChatMessage = {
-        ...msg,
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      };
-      setMessages((prev) => {
-        const updated = {
-          ...prev,
-          [groupId]: [...(prev[groupId] ?? []), newMsg],
-        };
-        AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(updated));
-        return updated;
-      });
+      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const newMsg: ChatMessage = { ...msg, id: localId };
+
+      setMessages((prev) => ({
+        ...prev,
+        [groupId]: [...(prev[groupId] ?? []), newMsg],
+      }));
+
+      if (msg.senderId === "system") return;
+
+      try {
+        const serverMsg = await apiFetch<{ id: string; createdAt: string }>(
+          "/messages",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              groupId,
+              senderName: msg.senderName,
+              text: msg.text,
+            }),
+          }
+        );
+        setMessages((prev) => {
+          const updated = (prev[groupId] ?? []).map((m) =>
+            m.id === localId
+              ? { ...m, id: serverMsg.id, timestamp: serverMsg.createdAt }
+              : m
+          );
+          return { ...prev, [groupId]: updated };
+        });
+      } catch {}
     },
     []
   );
+
+  const fetchMessages = useCallback(async (groupId: string): Promise<void> => {
+    try {
+      const serverMsgs = await apiFetch<
+        Array<{
+          id: string;
+          groupId: string;
+          senderId: string;
+          senderName: string;
+          text: string;
+          createdAt: string;
+        }>
+      >(`/messages?groupId=${encodeURIComponent(groupId)}`);
+
+      const mapped: ChatMessage[] = serverMsgs.map((m) => ({
+        id: m.id,
+        groupId: m.groupId,
+        senderId: m.senderId,
+        senderName: m.senderName,
+        text: m.text,
+        timestamp: m.createdAt,
+      }));
+
+      setMessages((prev) => {
+        const systemMsgs = (prev[groupId] ?? []).filter(
+          (m) => m.senderId === "system"
+        );
+        const localOptimistic = (prev[groupId] ?? []).filter(
+          (m) => m.id.startsWith("local-")
+        );
+        const serverIds = new Set(mapped.map((m) => m.id));
+        const stillPending = localOptimistic.filter((m) => !serverIds.has(m.id));
+        const merged = [...systemMsgs, ...mapped, ...stillPending];
+        merged.sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        return { ...prev, [groupId]: merged };
+      });
+    } catch {}
+  }, []);
+
+  const fetchConversations = useCallback(async (): Promise<Conversation[]> => {
+    try {
+      return await apiFetch<Conversation[]>("/messages/conversations");
+    } catch {
+      return [];
+    }
+  }, []);
 
   const loadMessages = useCallback(
     (groupId: string): ChatMessage[] => {
@@ -440,7 +517,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         getUserTrip,
         getMatches,
         sendMessage,
+        fetchMessages,
         loadMessages,
+        fetchConversations,
         setTournamentImage,
       }}
     >

@@ -18,6 +18,8 @@ import { ChatMessage, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 import { formatMessageTime } from "@/utils/time";
 
+const POLL_INTERVAL_MS = 5000;
+
 function parseRideshareGroupId(groupId: string): [string, string] | null {
   if (!groupId.startsWith("rs-")) return null;
   const inner = groupId.slice(3);
@@ -31,11 +33,12 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
-  const { loadMessages, sendMessage, trips } = useTrip();
+  const { loadMessages, sendMessage, fetchMessages, trips } = useTrip();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const systemMsgSent = useRef(false);
 
   const messages = loadMessages(groupId ?? "");
 
@@ -76,28 +79,42 @@ export default function ChatScreen() {
       : "";
 
   useEffect(() => {
-    if (messages.length === 0) {
-      if (isRideshareDm && (otherRideshareTrip || myRideshareTrip)) {
-        const airport = (otherRideshareTrip ?? myRideshareTrip)?.airport ?? "";
-        const otherName = otherRideshareTrip?.userName ?? "another family";
-        sendMessage(groupId ?? "", {
-          groupId: groupId ?? "",
-          senderId: "system",
-          senderName: "ReadySetGo",
-          text: `You matched with ${otherName} for a rideshare from ${airport}. Say hi and coordinate!`,
-          timestamp: new Date().toISOString(),
-        });
-      } else if (firstTrip) {
-        sendMessage(groupId ?? "", {
-          groupId: groupId ?? "",
-          senderId: "system",
-          senderName: "ReadySetGo",
-          text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
-          timestamp: new Date().toISOString(),
-        });
+    if (!groupId) return;
+
+    fetchMessages(groupId).then(() => {
+      if (systemMsgSent.current) return;
+      const serverMessages = loadMessages(groupId);
+      const hasRealMessages = serverMessages.some((m) => m.senderId !== "system");
+      if (!hasRealMessages) {
+        systemMsgSent.current = true;
+        if (isRideshareDm && (otherRideshareTrip || myRideshareTrip)) {
+          const airport = (otherRideshareTrip ?? myRideshareTrip)?.airport ?? "";
+          const otherName = otherRideshareTrip?.userName ?? "another family";
+          sendMessage(groupId, {
+            groupId,
+            senderId: "system",
+            senderName: "ReadySetGo",
+            text: `You matched with ${otherName} for a rideshare from ${airport}. Say hi and coordinate!`,
+            timestamp: new Date().toISOString(),
+          });
+        } else if (firstTrip) {
+          sendMessage(groupId, {
+            groupId,
+            senderId: "system",
+            senderName: "ReadySetGo",
+            text: `${familyCount} ${familyCount === 1 ? "family" : "families"} in this group. Coordinate your ride from ${firstTrip.airport} to ${firstTrip.hotel}.`,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
-    }
-  }, []);
+    });
+
+    const interval = setInterval(() => {
+      fetchMessages(groupId);
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [groupId]);
 
   const handleSend = async () => {
     const trimmed = text.trim();

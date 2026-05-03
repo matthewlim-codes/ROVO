@@ -11,6 +11,7 @@ import watchesRouter from "./watches";
 import pushTokensRouter from "./pushTokens";
 import notificationsRouter from "./notifications";
 import profileRouter from "./profile";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(watchesRouter);
 router.use(pushTokensRouter);
 router.use(notificationsRouter);
 router.use(profileRouter);
+router.use(messagesRouter);
 router.use(adminRouter);
 
 export default router;

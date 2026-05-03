@@ -7,3 +7,4 @@ export * from "./pushTokens";
 export * from "./notifications";
 export * from "./feedback";
 export * from "./userProfiles";
+export * from "./chatMessages";

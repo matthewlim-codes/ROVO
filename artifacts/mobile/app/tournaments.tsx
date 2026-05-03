@@ -307,6 +307,20 @@ export default function TournamentsScreen() {
         }
       />
 
+      <Pressable
+        onPress={() => router.push("/conversations")}
+        style={({ pressed }) => [
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            bottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
+      >
+        <Feather name="message-circle" size={22} color="#fff" />
+      </Pressable>
+
       <Modal
         visible={confirmLogout}
         transparent
@@ -741,6 +755,20 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
   },
   titleRow: {
     flexDirection: "row",
