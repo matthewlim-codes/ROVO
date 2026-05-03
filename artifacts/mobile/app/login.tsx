@@ -16,6 +16,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Image } from "expo-image";
+
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useColors } from "@/hooks/useColors";
@@ -140,9 +142,11 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <View style={styles.logoPill}>
-              <Text style={styles.logoText}>ROVO</Text>
-            </View>
+            <Image
+              source={require("../assets/images/rovo-logo.png")}
+              style={styles.logoImage}
+              contentFit="contain"
+            />
           </View>
 
           <View style={styles.heading}>
@@ -251,7 +255,7 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
-          <Pressable onPress={async () => { await enterGuestMode(); router.replace("/tournaments"); }} style={styles.skipRow}>
+          <Pressable onPress={async () => { await enterGuestMode(); router.replace("/"); }} style={styles.skipRow}>
             <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
               Skip for now
             </Text>
@@ -269,17 +273,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, gap: 32 },
   brand: { alignItems: "flex-start" },
-  logoPill: {
-    backgroundColor: "#0A0A0A",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  logoText: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    color: "#FFFFFF",
-    letterSpacing: 3,
+  logoImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 20,
   },
   heading: { gap: 6 },
   title: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.8, lineHeight: 38 },
