@@ -373,6 +373,26 @@ export default function RideshareMatchesScreen() {
               {clusters.map(({ primary, secondaries }) =>
                 renderPrimaryCard(primary, secondaries),
               )}
+
+              <Pressable
+                onPress={handleShare}
+                style={({ pressed }) => [
+                  styles.inviteNudge,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.separator,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Feather name="share-2" size={15} color={colors.accent} />
+                <Text style={[styles.inviteNudgeText, { color: colors.mutedForeground }]}>
+                  Know someone who would love this?{" "}
+                  <Text style={{ color: colors.accent, fontFamily: "Inter_600SemiBold" }}>
+                    Invite here
+                  </Text>
+                </Text>
+              </Pressable>
             </>
           ) : (
             <View style={styles.emptyState}>
@@ -711,6 +731,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   inviteBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  inviteNudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  inviteNudgeText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   errorBox: {
     flexDirection: "row",

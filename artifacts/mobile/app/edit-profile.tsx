@@ -10,6 +10,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -343,6 +344,40 @@ export default function EditProfileScreen() {
           />
         </Pressable>
         ) : null}
+
+        <Pressable
+          onPress={async () => {
+            try {
+              await Share.share({
+                message:
+                  "I'm using Rovo to coordinate airport rideshares at volleyball tournaments! Download the app and save your trip details to match with other families.",
+              });
+            } catch {
+              // dismissed
+            }
+          }}
+          style={({ pressed }) => [
+            styles.adminRow,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.separator,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <View style={[styles.adminIcon, { backgroundColor: colors.accentSurface }]}>
+            <Feather name="share-2" size={16} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.adminTitle, { color: colors.foreground }]}>
+              Invite teammates
+            </Text>
+            <Text style={[styles.adminSub, { color: colors.mutedForeground }]}>
+              Share Rovo with your club
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
 
         <Pressable
           onPress={() => setFeedbackOpen(true)}

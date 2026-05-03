@@ -11,7 +11,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -104,16 +103,6 @@ export default function TournamentsScreen() {
     router.push(`/rideshare-matches?tripId=${encodeURIComponent(trip.id)}`);
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message:
-          "I'm using Rovo to coordinate airport rideshares at volleyball tournaments! Download the app and save your trip details to match with other families. 🏐",
-      });
-    } catch {
-      // dismissed
-    }
-  };
 
   const handlePickImage = async (tournamentId: string) => {
     try {
@@ -189,18 +178,6 @@ export default function TournamentsScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable
-            onPress={handleShare}
-            style={[
-              styles.shareBtn,
-              { backgroundColor: colors.muted, borderColor: colors.separator },
-            ]}
-          >
-            <Feather name="share-2" size={14} color={colors.foreground} />
-            <Text style={[styles.shareBtnText, { color: colors.foreground }]}>
-              Invite
-            </Text>
-          </Pressable>
           <Pressable
             onPress={() => router.push("/edit-profile")}
             style={[
@@ -541,16 +518,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.6,
     marginTop: 2,
   },
-  shareBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  shareBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   editProfileBtn: {
     flexDirection: "row",
     alignItems: "center",
