@@ -5,6 +5,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
+import { PlusJakartaSans_700Bold } from "@expo-google-fonts/plus-jakarta-sans";
 import { ClerkProvider, ClerkLoaded, ClerkLoading } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -70,6 +71,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    PlusJakartaSans_700Bold,
   });
 
   useEffect(() => {

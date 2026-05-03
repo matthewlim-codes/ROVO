@@ -16,8 +16,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Image } from "expo-image";
-
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useColors } from "@/hooks/useColors";
@@ -142,11 +140,9 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <Image
-              source={require("../assets/images/rovo-logo.png")}
-              style={styles.logoImage}
-              contentFit="contain"
-            />
+            <View style={styles.logoCard}>
+              <Text style={styles.logoWordmark}>rovo</Text>
+            </View>
           </View>
 
           <View style={styles.heading}>
@@ -273,10 +269,19 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, gap: 32 },
   brand: { alignItems: "flex-start" },
-  logoImage: {
+  logoCard: {
     width: 88,
     height: 88,
-    borderRadius: 20,
+    backgroundColor: "#000",
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoWordmark: {
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontSize: 26,
+    color: "#fff",
+    letterSpacing: -0.6,
   },
   heading: { gap: 6 },
   title: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.8, lineHeight: 38 },

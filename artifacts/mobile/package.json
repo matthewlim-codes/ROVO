@@ -59,6 +59,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@react-native-community/datetimepicker": "8.4.4",
     "expo-device": "~8.0.10",
     "expo-notifications": "~0.32.17"
