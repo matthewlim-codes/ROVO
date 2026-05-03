@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -15,6 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Conversation, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
+
+export const CONVOS_LAST_VIEWED_KEY = "convos_last_viewed";
 
 function parseGroupLabel(groupId: string): { title: string; sub: string } {
   if (groupId.startsWith("rs-")) {
@@ -50,6 +53,10 @@ export default function ConversationsScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.setItem(CONVOS_LAST_VIEWED_KEY, new Date().toISOString()).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     const data = await fetchConversations();

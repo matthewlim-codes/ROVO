@@ -1,8 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +11,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -24,6 +26,7 @@ import {
   Trip,
 } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
+import { CONVOS_LAST_VIEWED_KEY } from "./conversations";
 
 type GenderFilter = "all" | TournamentGender;
 
@@ -45,12 +48,18 @@ export default function TournamentsScreen() {
     setSelectedTournament,
     setTournamentImage,
     trips,
+    fetchConversations,
   } = useTrip();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [genderFilter, setGenderFilter] = useState<GenderFilter>("all");
+  const [hasUnread, setHasUnread] = useState(false);
 
   const myArrivalTrip: Trip | null = user
     ? (trips.find((t) => t.userId === user.id && t.mode === "arrival") ?? null)
+    : null;
+
+  const myDepartureTrip: Trip | null = user
+    ? (trips.find((t) => t.userId === user.id && t.mode === "departure") ?? null)
     : null;
 
   const filteredTournaments = useMemo(() => {
@@ -60,16 +69,50 @@ export default function TournamentsScreen() {
     );
   }, [tournaments, genderFilter]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const [lastViewed, convos] = await Promise.all([
+          AsyncStorage.getItem(CONVOS_LAST_VIEWED_KEY),
+          fetchConversations(),
+        ]);
+        if (cancelled || !convos.length) return;
+        const lastViewedTime = lastViewed ? new Date(lastViewed).getTime() : 0;
+        const latestMsg = Math.max(...convos.map((c) => new Date(c.lastTimestamp).getTime()));
+        if (!cancelled) setHasUnread(latestMsg > lastViewedTime);
+      } catch {
+        // ignore
+      }
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [fetchConversations]);
+
   const handleSelect = (t: Tournament) => {
     setSelectedTournament(t);
     router.push("/travel-info");
   };
 
-  const handleViewRideshareMatches = () => {
-    if (!myArrivalTrip) return;
-    const tournament = tournaments.find((t) => t.id === myArrivalTrip.tournamentId);
+  const handleViewRideshareMatches = (trip: Trip) => {
+    const tournament = tournaments.find((t) => t.id === trip.tournamentId);
     if (tournament) setSelectedTournament(tournament);
-    router.push(`/rideshare-matches?tripId=${encodeURIComponent(myArrivalTrip.id)}`);
+    router.push(`/rideshare-matches?tripId=${encodeURIComponent(trip.id)}`);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message:
+          "I'm using Rovo to coordinate airport rideshares at volleyball tournaments! Download the app and save your trip details to match with other families. 🏐",
+      });
+    } catch {
+      // dismissed
+    }
   };
 
   const handlePickImage = async (tournamentId: string) => {
@@ -147,20 +190,27 @@ export default function TournamentsScreen() {
         </View>
         <View style={styles.headerActions}>
           <Pressable
+            onPress={handleShare}
+            style={[
+              styles.shareBtn,
+              { backgroundColor: colors.muted, borderColor: colors.separator },
+            ]}
+          >
+            <Feather name="share-2" size={14} color={colors.foreground} />
+            <Text style={[styles.shareBtnText, { color: colors.foreground }]}>
+              Invite
+            </Text>
+          </Pressable>
+          <Pressable
             onPress={() => router.push("/edit-profile")}
             style={[
               styles.editProfileBtn,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.separator,
-              },
+              { backgroundColor: colors.muted, borderColor: colors.separator },
             ]}
           >
             <Feather name="user" size={14} color={colors.foreground} />
-            <Text
-              style={[styles.editProfileText, { color: colors.foreground }]}
-            >
-              Edit profile
+            <Text style={[styles.editProfileText, { color: colors.foreground }]}>
+              Profile
             </Text>
           </Pressable>
           <Pressable onPress={handleLogoutPress} style={styles.logoutBtn}>
@@ -191,7 +241,7 @@ export default function TournamentsScreen() {
           styles.list,
           {
             paddingBottom:
-              insets.bottom + (Platform.OS === "web" ? 34 : 0) + 20,
+              insets.bottom + (Platform.OS === "web" ? 34 : 0) + 90,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -224,9 +274,10 @@ export default function TournamentsScreen() {
                 );
               })}
             </View>
+
             {myArrivalTrip && (
               <Pressable
-                onPress={handleViewRideshareMatches}
+                onPress={() => handleViewRideshareMatches(myArrivalTrip)}
                 style={({ pressed }) => [
                   styles.rideshareCard,
                   {
@@ -237,14 +288,42 @@ export default function TournamentsScreen() {
                 ]}
               >
                 <View style={[styles.rideshareIconWrap, { backgroundColor: colors.accent }]}>
-                  <Feather name="users" size={18} color="#fff" />
+                  <Feather name="arrow-down-circle" size={18} color="#fff" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.rideshareTitle, { color: colors.foreground }]}>
-                    View rideshare matches
+                    View arrival matches
                   </Text>
                   <Text style={[styles.rideShareSub, { color: colors.mutedForeground }]}>
                     {myArrivalTrip.airport} · arrival saved
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={colors.accent} />
+              </Pressable>
+            )}
+
+            {myDepartureTrip && (
+              <Pressable
+                onPress={() => handleViewRideshareMatches(myDepartureTrip)}
+                style={({ pressed }) => [
+                  styles.rideshareCard,
+                  {
+                    backgroundColor: colors.accentSurface,
+                    borderColor: colors.accentBorder,
+                    opacity: pressed ? 0.88 : 1,
+                    marginTop: myArrivalTrip ? 8 : 12,
+                  },
+                ]}
+              >
+                <View style={[styles.rideshareIconWrap, { backgroundColor: colors.accent }]}>
+                  <Feather name="arrow-up-circle" size={18} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rideshareTitle, { color: colors.foreground }]}>
+                    View departure matches
+                  </Text>
+                  <Text style={[styles.rideShareSub, { color: colors.mutedForeground }]}>
+                    {myDepartureTrip.airport} · departure saved
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={colors.accent} />
@@ -267,36 +346,21 @@ export default function TournamentsScreen() {
               <ActivityIndicator color={colors.primary} />
             ) : tournamentsError ? (
               <>
-                <Feather
-                  name="alert-circle"
-                  size={28}
-                  color={colors.mutedForeground}
-                />
-                <Text
-                  style={[styles.emptyText, { color: colors.mutedForeground }]}
-                >
+                <Feather name="alert-circle" size={28} color={colors.mutedForeground} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                   {tournamentsError}
                 </Text>
                 <Pressable
                   onPress={refreshTournaments}
-                  style={[
-                    styles.emptyRetry,
-                    { backgroundColor: colors.primary },
-                  ]}
+                  style={[styles.emptyRetry, { backgroundColor: colors.primary }]}
                 >
                   <Text style={styles.emptyRetryText}>Try again</Text>
                 </Pressable>
               </>
             ) : (
               <>
-                <Feather
-                  name="calendar"
-                  size={28}
-                  color={colors.mutedForeground}
-                />
-                <Text
-                  style={[styles.emptyText, { color: colors.mutedForeground }]}
-                >
+                <Feather name="calendar" size={28} color={colors.mutedForeground} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                   {genderFilter === "all"
                     ? "No upcoming tournaments yet."
                     : `No upcoming ${genderFilter} tournaments.`}
@@ -307,8 +371,12 @@ export default function TournamentsScreen() {
         }
       />
 
+      {/* Messages FAB with unread badge */}
       <Pressable
-        onPress={() => router.push("/conversations")}
+        onPress={() => {
+          setHasUnread(false);
+          router.push("/conversations");
+        }}
         style={({ pressed }) => [
           styles.fab,
           {
@@ -319,6 +387,9 @@ export default function TournamentsScreen() {
         ]}
       >
         <Feather name="message-circle" size={22} color="#fff" />
+        {hasUnread && (
+          <View style={styles.unreadDot} />
+        )}
       </Pressable>
 
       <Modal
@@ -338,37 +409,21 @@ export default function TournamentsScreen() {
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
               Log out?
             </Text>
-            <Text
-              style={[styles.modalBody, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.modalBody, { color: colors.mutedForeground }]}>
               Are you sure you want to log out?
             </Text>
             <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setConfirmLogout(false)}
-                style={[
-                  styles.modalBtn,
-                  {
-                    backgroundColor: colors.muted,
-                  },
-                ]}
+                style={[styles.modalBtn, { backgroundColor: colors.muted }]}
               >
-                <Text
-                  style={[styles.modalBtnText, { color: colors.foreground }]}
-                >
-                  No
-                </Text>
+                <Text style={[styles.modalBtnText, { color: colors.foreground }]}>No</Text>
               </Pressable>
               <Pressable
                 onPress={confirmLogoutYes}
-                style={[
-                  styles.modalBtn,
-                  { backgroundColor: colors.primary },
-                ]}
+                style={[styles.modalBtn, { backgroundColor: colors.primary }]}
               >
-                <Text style={[styles.modalBtnText, { color: "#fff" }]}>
-                  Yes
-                </Text>
+                <Text style={[styles.modalBtnText, { color: "#fff" }]}>Yes</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -405,19 +460,12 @@ function TournamentCard({
         onPress={onPickImage}
         style={[
           styles.imageWrap,
-          {
-            backgroundColor: colors.muted,
-            borderColor: colors.separator,
-          },
+          { backgroundColor: colors.muted, borderColor: colors.separator },
         ]}
       >
         {item.imageUri ? (
           <>
-            <Image
-              source={{ uri: item.imageUri }}
-              style={styles.image}
-              contentFit="cover"
-            />
+            <Image source={{ uri: item.imageUri }} style={styles.image} contentFit="cover" />
             <View style={styles.imageEditBadge}>
               <Feather name="edit-2" size={12} color="#fff" />
             </View>
@@ -425,12 +473,7 @@ function TournamentCard({
         ) : (
           <View style={styles.imagePlaceholder}>
             <Feather name="image" size={28} color={colors.mutedForeground} />
-            <Text
-              style={[
-                styles.imagePlaceholderText,
-                { color: colors.mutedForeground },
-              ]}
-            >
+            <Text style={[styles.imagePlaceholderText, { color: colors.mutedForeground }]}>
               Tap to add a tournament image
             </Text>
           </View>
@@ -439,19 +482,10 @@ function TournamentCard({
 
       <View style={styles.cardContent}>
         <View style={styles.cardTop}>
-          <View
-            style={[
-              styles.tournamentEmoji,
-              { backgroundColor: colors.muted },
-            ]}
-          >
+          <View style={[styles.tournamentEmoji, { backgroundColor: colors.muted }]}>
             <Feather name="award" size={22} color={colors.foreground} />
           </View>
-          <Feather
-            name="chevron-right"
-            size={20}
-            color={colors.mutedForeground}
-          />
+          <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
         </View>
 
         <View style={styles.titleRow}>
@@ -466,39 +500,21 @@ function TournamentCard({
 
         <View style={styles.metaGroup}>
           <View style={styles.metaRow}>
-            <Feather
-              name="map-pin"
-              size={13}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[styles.metaText, { color: colors.mutedForeground }]}
-              numberOfLines={1}
-            >
+            <Feather name="map-pin" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
               {item.location}
             </Text>
           </View>
           <View style={styles.metaRow}>
-            <Feather
-              name="calendar"
-              size={13}
-              color={colors.mutedForeground}
-            />
+            <Feather name="calendar" size={13} color={colors.mutedForeground} />
             <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
               {item.dates}
             </Text>
           </View>
         </View>
 
-        <View
-          style={[
-            styles.selectPill,
-            { backgroundColor: colors.primary, borderRadius: 100 },
-          ]}
-        >
-          <Text style={[styles.selectPillText, { color: "#fff" }]}>
-            Select tournament
-          </Text>
+        <View style={[styles.selectPill, { backgroundColor: colors.primary, borderRadius: 100 }]}>
+          <Text style={[styles.selectPillText, { color: "#fff" }]}>Select tournament</Text>
         </View>
       </View>
     </Pressable>
@@ -517,21 +533,24 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerLeft: { flexShrink: 1 },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  greeting: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  greeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
   headerTitle: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.6,
     marginTop: 2,
   },
+  shareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  shareBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   editProfileBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -541,10 +560,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 1,
   },
-  editProfileText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
+  editProfileText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   logoutBtn: {
     width: 40,
     height: 40,
@@ -562,19 +578,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  clubDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  clubText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  list: {
-    padding: 16,
-    gap: 12,
-  },
+  clubDot: { width: 8, height: 8, borderRadius: 4 },
+  clubText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  list: { padding: 16, gap: 12 },
   card: {
     boxShadow: "0px 2px 10px rgba(0,0,0,0.06)",
     elevation: 2,
@@ -589,10 +595,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
+  image: { width: "100%", height: "100%" },
   imageEditBadge: {
     position: "absolute",
     top: 10,
@@ -604,19 +607,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  imagePlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  imagePlaceholderText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-  cardContent: {
-    padding: 20,
-    gap: 12,
-  },
+  imagePlaceholder: { alignItems: "center", justifyContent: "center", gap: 6 },
+  imagePlaceholderText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  cardContent: { padding: 20, gap: 12 },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -635,26 +628,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   metaGroup: { gap: 6 },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
   selectPill: {
     alignSelf: "flex-start",
     paddingHorizontal: 16,
     paddingVertical: 9,
     marginTop: 4,
   },
-  selectPillText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
+  selectPillText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -669,29 +651,20 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 8,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   modalBody: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     marginBottom: 12,
   },
-  modalActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  modalActions: { flexDirection: "row", gap: 10 },
   modalBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 100,
     alignItems: "center",
   },
-  modalBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
+  modalBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   filterRow: {
     flexDirection: "row",
     gap: 8,
@@ -715,10 +688,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  rideshareTitle: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
+  rideshareTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   rideShareSub: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
@@ -730,10 +700,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 1,
   },
-  filterPillText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
+  filterPillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -770,6 +737,17 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
+  unreadDot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: "#EF4444",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -795,30 +773,13 @@ function GenderBadge({ gender }: { gender: TournamentGender }) {
     TournamentGender,
     { bg: string; border: string; fg: string; label: string }
   > = {
-    girls: {
-      bg: "#FDF2F8",
-      border: "#FBCFE8",
-      fg: "#BE185D",
-      label: "GIRLS",
-    },
-    boys: {
-      bg: "#EFF6FF",
-      border: "#BFDBFE",
-      fg: "#1D4ED8",
-      label: "BOYS",
-    },
-    coed: {
-      bg: colors.muted,
-      border: colors.separator,
-      fg: colors.foreground,
-      label: "COED",
-    },
+    girls: { bg: "#FDF2F8", border: "#FBCFE8", fg: "#BE185D", label: "GIRLS" },
+    boys: { bg: "#EFF6FF", border: "#BFDBFE", fg: "#1D4ED8", label: "BOYS" },
+    coed: { bg: colors.muted, border: colors.separator, fg: colors.mutedForeground, label: "COED" },
   };
   const p = palette[gender];
   return (
-    <View
-      style={[styles.genderBadge, { backgroundColor: p.bg, borderColor: p.border }]}
-    >
+    <View style={[styles.genderBadge, { backgroundColor: p.bg, borderColor: p.border }]}>
       <Text style={[styles.genderBadgeText, { color: p.fg }]}>{p.label}</Text>
     </View>
   );

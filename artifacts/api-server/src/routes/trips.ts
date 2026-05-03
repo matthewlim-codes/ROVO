@@ -65,7 +65,7 @@ router.get("/trips/matches", requireAuth, async (req, res) => {
         and(
           eq(tripsTable.tournamentId, trip.tournamentId),
           eq(tripsTable.airport, trip.airport),
-          eq(tripsTable.mode, "arrival"),
+          eq(tripsTable.mode, trip.mode),
           ne(tripsTable.userId, trip.userId),
           sql`ABS(EXTRACT(EPOCH FROM (${tripsTable.datetime} - ${trip.datetime}::timestamptz)) * 1000) <= ${SIXTY_MIN_MS}`,
         ),

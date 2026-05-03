@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -72,6 +73,7 @@ export default function RideshareMatchesScreen() {
 
   const myTrip = trips.find((t) => t.id === tripId) ?? paramTrip;
   const rawTripId = tripId?.replace(/^srv-/, "") ?? "";
+  const isArrival = myTrip?.mode !== "departure";
 
   const fetchMatches = useCallback(async () => {
     if (!rawTripId) return;
@@ -105,7 +107,7 @@ export default function RideshareMatchesScreen() {
     router.push(`/chat/${groupId}`);
   };
 
-  const handleCancelArrival = async () => {
+  const handleCancelTrip = async () => {
     if (!tripId) return;
     setCancelling(true);
     setSheetVisible(false);
@@ -117,6 +119,20 @@ export default function RideshareMatchesScreen() {
   const handleEditDetails = () => {
     setSheetVisible(false);
     router.push("/travel-info");
+  };
+
+  const handleShare = async () => {
+    setSheetVisible(false);
+    const tournamentName = selectedTournament?.name ?? "the tournament";
+    const mode = isArrival ? "arriving at" : "departing from";
+    const airport = myTrip?.airport ?? "the airport";
+    try {
+      await Share.share({
+        message: `Hey! I'm using Rovo to coordinate my rideshare for ${tournamentName}. I'm ${mode} ${airport} — download Rovo and save your trip so we can match up!`,
+      });
+    } catch {
+      // dismissed
+    }
   };
 
   const renderPrimaryCard = (primary: RideshareMatch, secondaries: RideshareMatch[]) => (
@@ -134,7 +150,7 @@ export default function RideshareMatchesScreen() {
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={[styles.headline, { color: colors.foreground }]}>
             <Text style={{ fontFamily: "Inter_700Bold" }}>{primary.userName}</Text>
-            {" "}is arriving at{" "}
+            {isArrival ? " is arriving at " : " is departing at "}
             <Text style={{ fontFamily: "Inter_700Bold" }}>{formatTime(primary.datetime)}</Text>
             {" — want to rideshare?"}
           </Text>
@@ -264,13 +280,15 @@ export default function RideshareMatchesScreen() {
         </View>
       </View>
 
-      {/* My trip banner — large and prominent */}
+      {/* My trip banner */}
       {myTrip && (
         <View style={[styles.myTripCard, { backgroundColor: colors.accentSurface, borderBottomColor: colors.accentBorder }]}>
           <View style={styles.myTripTop}>
             <View style={[styles.livePill, { backgroundColor: colors.card }]}>
               <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
-              <Text style={[styles.liveText, { color: colors.accent }]}>Your arrival</Text>
+              <Text style={[styles.liveText, { color: colors.accent }]}>
+                {isArrival ? "Your arrival" : "Your departure"}
+              </Text>
             </View>
           </View>
 
@@ -309,7 +327,7 @@ export default function RideshareMatchesScreen() {
               )}
             </View>
             <Text style={[styles.myTripHotel, { color: colors.mutedForeground }]} numberOfLines={1}>
-              → {myTrip.hotel}
+              {isArrival ? "→" : "←"} {myTrip.hotel}
             </Text>
           </View>
         </View>
@@ -365,9 +383,20 @@ export default function RideshareMatchesScreen() {
                 No rideshare matches yet
               </Text>
               <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-                No one else has registered an arrival at {myTrip?.airport ?? "this airport"} within
-                an hour of your flight. Check back as more families sign up.
+                No one else has registered {isArrival ? "an arrival" : "a departure"} at{" "}
+                {myTrip?.airport ?? "this airport"} within an hour of your flight. Check back as
+                more families sign up.
               </Text>
+              <Pressable
+                onPress={handleShare}
+                style={({ pressed }) => [
+                  styles.inviteBtn,
+                  { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Feather name="share-2" size={15} color="#fff" />
+                <Text style={styles.inviteBtnText}>Invite teammates</Text>
+              </Pressable>
             </View>
           )}
         </ScrollView>
@@ -396,7 +425,7 @@ export default function RideshareMatchesScreen() {
           ) : (
             <>
               <Feather name="edit-2" size={18} color="#fff" />
-              <Text style={styles.fabLabel}>Edit trip</Text>
+              <Text style={styles.fabLabel}>Manage trip</Text>
             </>
           )}
         </Pressable>
@@ -425,8 +454,29 @@ export default function RideshareMatchesScreen() {
           <View style={[styles.sheetHandle, { backgroundColor: colors.muted }]} />
 
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-            Manage your arrival
+            Manage your trip
           </Text>
+
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [
+              styles.sheetAction,
+              { backgroundColor: pressed ? colors.muted : colors.background, borderRadius: 14 },
+            ]}
+          >
+            <View style={[styles.sheetActionIcon, { backgroundColor: colors.accentSurface }]}>
+              <Feather name="share-2" size={18} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetActionTitle, { color: colors.foreground }]}>
+                Invite teammates
+              </Text>
+              <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
+                Share Rovo with your team
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
 
           <Pressable
             onPress={handleEditDetails}
@@ -443,7 +493,7 @@ export default function RideshareMatchesScreen() {
                 Change airport
               </Text>
               <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
-                Update your arrival airport
+                Update your {isArrival ? "arrival" : "departure"} airport
               </Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -473,7 +523,7 @@ export default function RideshareMatchesScreen() {
           <View style={[styles.sheetDivider, { backgroundColor: colors.separator }]} />
 
           <Pressable
-            onPress={handleCancelArrival}
+            onPress={handleCancelTrip}
             style={({ pressed }) => [
               styles.sheetAction,
               { backgroundColor: pressed ? "#FEF2F2" : colors.background, borderRadius: 14 },
@@ -484,7 +534,7 @@ export default function RideshareMatchesScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sheetActionTitle, { color: colors.destructive }]}>
-                Cancel my arrival
+                Cancel my trip
               </Text>
               <Text style={[styles.sheetActionSub, { color: colors.mutedForeground }]}>
                 Remove your trip and stop matching
@@ -651,6 +701,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
+  inviteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 100,
+    marginTop: 4,
+  },
+  inviteBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   errorBox: {
     flexDirection: "row",
