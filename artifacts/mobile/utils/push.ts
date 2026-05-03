@@ -4,14 +4,17 @@ import * as Notifications from "expo-notifications";
 
 import { apiFetch } from "./api";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// setNotificationHandler is native-only; expo-notifications has no web support
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export async function registerForPushAndUpload(): Promise<string | null> {
   try {

@@ -13,7 +13,7 @@ import { Stack, router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -25,12 +25,17 @@ import { TripProvider } from "@/context/TripContext";
 
 SplashScreen.preventAutoHideAsync();
 
+// tokenCache uses expo-secure-store which is native-only; omit on web
+const clerkTokenCache = Platform.OS !== "web" ? tokenCache : undefined;
+
 const queryClient = new QueryClient();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
 function NotificationDeepLinkHandler() {
   useEffect(() => {
+    // expo-notifications has no web support; skip on web
+    if (Platform.OS === "web") return;
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
       const groupId = data?.groupId;
@@ -87,7 +92,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <ClerkProvider publishableKey={publishableKey} tokenCache={clerkTokenCache}>
           <ClerkLoading>
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" }}>
               <ActivityIndicator size="large" color="#6366F1" />
