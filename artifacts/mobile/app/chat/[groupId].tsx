@@ -81,12 +81,12 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!groupId) return;
 
-    fetchMessages(groupId).then(() => {
+    fetchMessages(groupId).then((serverMsgs) => {
       if (systemMsgSent.current) return;
-      const serverMessages = loadMessages(groupId);
-      const hasRealMessages = serverMessages.some((m) => m.senderId !== "system");
+      systemMsgSent.current = true;
+      // Only show the intro system message if no real messages exist on the server yet
+      const hasRealMessages = serverMsgs.some((m) => m.senderId !== "system");
       if (!hasRealMessages) {
-        systemMsgSent.current = true;
         if (isRideshareDm && (otherRideshareTrip || myRideshareTrip)) {
           const airport = (otherRideshareTrip ?? myRideshareTrip)?.airport ?? "";
           const otherName = otherRideshareTrip?.userName ?? "another family";

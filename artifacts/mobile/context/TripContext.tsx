@@ -56,6 +56,7 @@ export interface Conversation {
 }
 
 interface TripContextType {
+
   tournaments: Tournament[];
   tournamentsLoading: boolean;
   tournamentsError: string | null;
@@ -71,7 +72,7 @@ interface TripContextType {
   getUserTrip: (userId: string, tournamentId: string) => Trip | null;
   getMatches: (trip: Trip) => MatchGroup[];
   sendMessage: (groupId: string, msg: Omit<ChatMessage, "id">) => Promise<void>;
-  fetchMessages: (groupId: string) => Promise<void>;
+  fetchMessages: (groupId: string) => Promise<ChatMessage[]>;
   loadMessages: (groupId: string) => ChatMessage[];
   fetchConversations: () => Promise<Conversation[]>;
   setTournamentImage: (tournamentId: string, uri: string) => Promise<void>;
@@ -443,7 +444,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const fetchMessages = useCallback(async (groupId: string): Promise<void> => {
+  const fetchMessages = useCallback(async (groupId: string): Promise<ChatMessage[]> => {
     try {
       const serverMsgs = await apiFetch<
         Array<{
@@ -469,8 +470,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         const systemMsgs = (prev[groupId] ?? []).filter(
           (m) => m.senderId === "system"
         );
+        // Only keep optimistic user messages (NOT system — they also start with "local-"
+        // and would otherwise appear in both systemMsgs and stillPending, duplicating them)
         const localOptimistic = (prev[groupId] ?? []).filter(
-          (m) => m.id.startsWith("local-")
+          (m) => m.id.startsWith("local-") && m.senderId !== "system"
         );
         const serverIds = new Set(mapped.map((m) => m.id));
         const stillPending = localOptimistic.filter((m) => !serverIds.has(m.id));
@@ -481,7 +484,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         );
         return { ...prev, [groupId]: merged };
       });
-    } catch {}
+
+      return mapped;
+    } catch {
+      return [];
+    }
   }, []);
 
   const fetchConversations = useCallback(async (): Promise<Conversation[]> => {
