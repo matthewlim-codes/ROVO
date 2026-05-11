@@ -192,7 +192,7 @@ export default function LoginScreen() {
               onSubmitEditing={() => passwordRef.current?.focus()}
               leftIcon={<Feather name="mail" size={18} color={colors.mutedForeground} />}
             />
-            {errors.fields.identifier && (
+            {errors?.fields?.identifier && (
               <Text style={[styles.fieldError, { color: colors.destructive }]}>
                 {errors.fields.identifier.message}
               </Text>
@@ -217,7 +217,7 @@ export default function LoginScreen() {
                 </Pressable>
               }
             />
-            {errors.fields.password && (
+            {errors?.fields?.password && (
               <Text style={[styles.fieldError, { color: colors.destructive }]}>
                 {errors.fields.password.message}
               </Text>

@@ -76,9 +76,9 @@ export default function SignUpScreen() {
   const loading = fetchStatus === "fetching";
 
   const isVerify =
-    signUp.status === "missing_requirements" &&
-    signUp.unverifiedFields.includes("email_address") &&
-    signUp.missingFields.length === 0;
+    signUp?.status === "missing_requirements" &&
+    (signUp?.unverifiedFields ?? []).includes("email_address") &&
+    (signUp?.missingFields ?? []).length === 0;
 
   const handleSubmit = async () => {
     setStatusError("");
@@ -239,7 +239,7 @@ export default function SignUpScreen() {
                 onSubmitEditing={() => passwordRef.current?.focus()}
                 leftIcon={<Feather name="mail" size={18} color={colors.mutedForeground} />}
               />
-              {errors.fields.emailAddress && (
+              {errors?.fields?.emailAddress && (
                 <Text style={[styles.fieldError, { color: colors.destructive }]}>
                   {errors.fields.emailAddress.message}
                 </Text>
@@ -264,7 +264,7 @@ export default function SignUpScreen() {
                   </Pressable>
                 }
               />
-              {errors.fields.password && (
+              {errors?.fields?.password && (
                 <Text style={[styles.fieldError, { color: colors.destructive }]}>
                   {errors.fields.password.message}
                 </Text>
@@ -302,7 +302,7 @@ export default function SignUpScreen() {
                 onSubmitEditing={handleVerify}
                 leftIcon={<Feather name="key" size={18} color={colors.mutedForeground} />}
               />
-              {errors.fields.code && (
+              {errors?.fields?.code && (
                 <Text style={[styles.fieldError, { color: colors.destructive }]}>
                   {errors.fields.code.message}
                 </Text>

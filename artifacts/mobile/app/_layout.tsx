@@ -91,7 +91,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
+      <ErrorBoundary onError={(err, stack) => console.error("[ErrorBoundary]", err.message, stack)}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={clerkTokenCache}>
           <ClerkLoading>
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" }}>
