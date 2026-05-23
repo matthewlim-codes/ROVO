@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useSignIn, useSSO } from "@clerk/expo";
+import { useClerk, useSignIn, useSSO } from "@clerk/expo";
 import * as AuthSession from "expo-auth-session";
 import { type Href, router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -59,6 +59,7 @@ export default function LoginScreen() {
   useWarmUpBrowser();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const clerk = useClerk();
   const { signIn, errors, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
   const { enterGuestMode } = useAuth();
@@ -102,17 +103,25 @@ export default function LoginScreen() {
     setStatusError("");
     setGoogleLoading(true);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_google",
-        redirectUrl: AuthSession.makeRedirectUri(),
-      });
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async ({ decorateUrl }) => navigateAfterAuth(decorateUrl),
+      if (Platform.OS === "web") {
+        await clerk.client!.signIn.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: window.location.origin + "/login",
+          redirectUrlComplete: window.location.origin + "/",
         });
       } else {
-        setStatusError("Google sign-in incomplete. Please try again.");
+        const { createdSessionId, setActive } = await startSSOFlow({
+          strategy: "oauth_google",
+          redirectUrl: AuthSession.makeRedirectUri(),
+        });
+        if (createdSessionId && setActive) {
+          await setActive({
+            session: createdSessionId,
+            navigate: async ({ decorateUrl }) => navigateAfterAuth(decorateUrl),
+          });
+        } else {
+          setStatusError("Google sign-in incomplete. Please try again.");
+        }
       }
     } catch (e) {
       setStatusError(clerkErrorMessage(e));
