@@ -103,13 +103,15 @@ export default function LoginScreen() {
     setStatusError("");
     setGoogleLoading(true);
     try {
-      if (Platform.OS === "web") {
+      if (Platform.OS === "web" && process.env.NODE_ENV === "production") {
+        // Production web: full-page redirect avoids popup blocking on mobile browsers
         await clerk.client!.signIn.authenticateWithRedirect({
           strategy: "oauth_google",
           redirectUrl: window.location.origin + "/sso-callback",
           redirectUrlComplete: window.location.origin + "/",
         });
       } else {
+        // Native + dev web: popup via startSSOFlow (works on desktop preview)
         const { createdSessionId, setActive } = await startSSOFlow({
           strategy: "oauth_google",
           redirectUrl: AuthSession.makeRedirectUri(),

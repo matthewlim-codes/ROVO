@@ -135,7 +135,8 @@ export default function SignUpScreen() {
     setStatusError("");
     setGoogleLoading(true);
     try {
-      if (Platform.OS === "web") {
+      if (Platform.OS === "web" && process.env.NODE_ENV === "production") {
+        // Production web: full-page redirect avoids popup blocking on mobile browsers
         await clerk.client!.signUp.authenticateWithRedirect({
           strategy: "oauth_google",
           redirectUrl: window.location.origin + "/sso-callback",
