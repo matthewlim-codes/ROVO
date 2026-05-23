@@ -87,7 +87,7 @@ export default function ClubCodeScreen() {
 
           <View style={styles.form}>
             <Input
-              placeholder="Club code (e.g. GOLD2024)"
+              placeholder="Enter club code"
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
@@ -124,17 +124,6 @@ export default function ClubCodeScreen() {
             />
           </View>
 
-          <View
-            style={[
-              styles.hintBox,
-              { backgroundColor: colors.muted, borderRadius: 12 },
-            ]}
-          >
-            <Feather name="info" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-              Demo codes: GOLD2024 · STORM24 · VBALL25 · ELITE25 · FURY2025
-            </Text>
-          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -180,17 +169,5 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
     lineHeight: 18,
-  },
-  hintBox: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "flex-start",
-    padding: 14,
-  },
-  hint: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-    lineHeight: 20,
   },
 });
