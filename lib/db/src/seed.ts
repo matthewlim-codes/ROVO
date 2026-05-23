@@ -1,7 +1,25 @@
+/**
+ * DEV-ONLY SEED SCRIPT — DO NOT RUN IN PRODUCTION
+ *
+ * This script inserts demo clubs, club codes, and tournaments for local
+ * development and testing only. The demo codes (GOLD2024, STORM24, VBALL25,
+ * ELITE25, FURY2025) are fictitious and must never be seeded into the
+ * production database, as they would allow unintended access to the app.
+ *
+ * Run locally with: pnpm --filter @workspace/db run seed
+ */
+
 import { db } from "./index.js";
 import { clubsTable, clubCodesTable, tournamentsTable } from "./schema/index.js";
 
 async function seed() {
+  if (process.env.ALLOW_DEMO_SEED !== "true") {
+    throw new Error(
+      "Refusing to seed demo data. Set ALLOW_DEMO_SEED=true to explicitly opt in. " +
+        "This script must never be run in production.",
+    );
+  }
+
   console.log("Seeding database...");
 
   const existingClubs = await db.select().from(clubsTable);
