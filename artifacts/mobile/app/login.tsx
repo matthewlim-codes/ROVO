@@ -106,7 +106,7 @@ export default function LoginScreen() {
       if (Platform.OS === "web") {
         await clerk.client!.signIn.authenticateWithRedirect({
           strategy: "oauth_google",
-          redirectUrl: window.location.origin + "/login",
+          redirectUrl: window.location.origin + "/sso-callback",
           redirectUrlComplete: window.location.origin + "/",
         });
       } else {

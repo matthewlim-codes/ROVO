@@ -58,6 +58,7 @@ function RootLayoutNav() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="login" />
         <Stack.Screen name="sign-up" />
+        <Stack.Screen name="sso-callback" />
         <Stack.Screen name="club-code" />
         <Stack.Screen name="tournaments" />
         <Stack.Screen name="edit-profile" />

@@ -138,7 +138,7 @@ export default function SignUpScreen() {
       if (Platform.OS === "web") {
         await clerk.client!.signUp.authenticateWithRedirect({
           strategy: "oauth_google",
-          redirectUrl: window.location.origin + "/sign-up",
+          redirectUrl: window.location.origin + "/sso-callback",
           redirectUrlComplete: window.location.origin + "/",
         });
       } else {
