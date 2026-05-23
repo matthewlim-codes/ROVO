@@ -513,6 +513,9 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
 
 async function buildWebExport(domain) {
   console.log("Building Expo web export...");
+  const clerkProxyUrl = process.env.CLERK_PROXY_URL
+    ? `https://${domain}${process.env.CLERK_PROXY_URL}`
+    : "";
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: domain,
@@ -520,6 +523,7 @@ async function buildWebExport(domain) {
       process.env.CLERK_PUBLISHABLE_KEY ||
       process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
       "",
+    EXPO_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl,
     EXPO_PUBLIC_REPL_ID: getExpoPublicReplId() || "",
     EXPO_PUBLIC_ADMIN_EMAILS: process.env.EXPO_PUBLIC_ADMIN_EMAILS || "",
   };

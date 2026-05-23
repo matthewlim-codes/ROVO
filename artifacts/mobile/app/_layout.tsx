@@ -31,6 +31,7 @@ const clerkTokenCache = Platform.OS !== "web" ? tokenCache : undefined;
 const queryClient = new QueryClient();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function NotificationDeepLinkHandler() {
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary onError={(err, stack) => console.error("[ErrorBoundary]", err.message, stack)}>
-        <ClerkProvider publishableKey={publishableKey} tokenCache={clerkTokenCache}>
+        <ClerkProvider publishableKey={publishableKey} tokenCache={clerkTokenCache} proxyUrl={proxyUrl}>
           <ClerkLoading>
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" }}>
               <ActivityIndicator size="large" color="#6366F1" />
