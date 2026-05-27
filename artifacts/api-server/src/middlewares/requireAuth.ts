@@ -16,13 +16,6 @@ export function requireAuth(
     next();
     return;
   }
-  // Allow guest access — device-generated ID passed from mobile
-  const guestId = req.headers["x-guest-id"];
-  if (typeof guestId === "string" && guestId.startsWith("guest-")) {
-    (req as AuthedRequest).authUserId = guestId;
-    next();
-    return;
-  }
   res.status(401).json({ error: "Unauthorized" });
 }
 
