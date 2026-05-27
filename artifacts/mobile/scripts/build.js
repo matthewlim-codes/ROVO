@@ -513,9 +513,7 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
 
 async function buildWebExport(domain) {
   console.log("Building Expo web export...");
-  const clerkProxyUrl = process.env.CLERK_PROXY_URL
-    ? `https://${domain}${process.env.CLERK_PROXY_URL}`
-    : "";
+  const clerkProxyUrl = `https://${domain}/api/__clerk`;
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: domain,
