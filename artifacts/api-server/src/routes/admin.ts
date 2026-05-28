@@ -58,6 +58,13 @@ const ADMIN_HTML = `<!DOCTYPE html>
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
   .modal-backdrop.open { display: flex; }
   .modal { background: var(--card); border-radius: 16px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal.wide { max-width: 680px; }
+  .import-progress { margin-top: 16px; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; font-family: monospace; background: var(--bg); display: none; }
+  .import-progress.visible { display: block; }
+  .import-row { padding: 2px 0; }
+  .import-row.ok { color: #22C55E; }
+  .import-row.err { color: var(--danger); }
+  .import-row.info { color: var(--muted); }
   .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
   .empty { padding: 40px; text-align: center; color: var(--muted); }
   .toast { position: fixed; bottom: 24px; right: 24px; background: var(--primary); color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 1000; transform: translateY(80px); opacity: 0; transition: all 0.3s ease; pointer-events: none; }
@@ -129,7 +136,10 @@ const ADMIN_HTML = `<!DOCTYPE html>
     <div class="card">
       <div class="card-header">
         <h2>Tournaments</h2>
-        <button class="btn btn-primary" onclick="openModal('tournament')">+ Add Tournament</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="openImportModal()">⬆ Bulk Import</button>
+          <button class="btn btn-primary" onclick="openModal('tournament')">+ Add Tournament</button>
+        </div>
       </div>
       <table>
         <thead><tr><th>Name</th><th>Location</th><th>Dates</th><th>Gender</th><th>Actions</th></tr></thead>
@@ -147,6 +157,45 @@ const ADMIN_HTML = `<!DOCTYPE html>
     <div class="form-footer">
       <button class="btn btn-primary" id="modal-save" onclick="saveModal()">Save</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div id="import-modal" class="modal-backdrop" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal wide">
+    <h3>Bulk Import Tournaments</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.5">
+      Paste a JSON array below. Each entry needs <strong>name</strong>, <strong>location</strong>,
+      <strong>startDate</strong> (YYYY-MM-DD), <strong>endDate</strong> (YYYY-MM-DD), and
+      <strong>gender</strong> (girls / boys / coed). <em>dates</em> (display string) and
+      <em>description</em> are optional — <em>dates</em> is auto-generated if omitted.
+    </p>
+    <details style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)">Show example JSON</summary>
+      <pre id="import-example" style="margin-top:8px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:11px;overflow-x:auto;white-space:pre">[
+  {
+    "name": "SoCal Cup: The Showcase",
+    "location": "Los Angeles, CA",
+    "startDate": "2026-06-19",
+    "endDate": "2026-06-21",
+    "gender": "coed"
+  },
+  {
+    "name": "AAU/JVA Windy City Round-Up",
+    "location": "Chicago, IL",
+    "startDate": "2026-06-19",
+    "endDate": "2026-06-21",
+    "gender": "girls",
+    "description": "Girls qualifier event"
+  }
+]</pre>
+    </details>
+    <textarea id="import-json" rows="10" placeholder="Paste JSON here…" style="font-family:monospace;font-size:12px"></textarea>
+    <div id="import-progress" class="import-progress"></div>
+    <div class="form-footer">
+      <button class="btn btn-primary" id="import-run-btn" onclick="runBulkImport()">Import All</button>
+      <button class="btn btn-ghost" onclick="closeImportModal()">Close</button>
     </div>
   </div>
 </div>
@@ -375,6 +424,88 @@ async function deleteItem(type, id) {
 
 function v(id) { return (document.getElementById(id)?.value || '').trim(); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function openImportModal() {
+  document.getElementById('import-modal').classList.add('open');
+  document.getElementById('import-json').value = '';
+  const prog = document.getElementById('import-progress');
+  prog.innerHTML = '';
+  prog.classList.remove('visible');
+  document.getElementById('import-run-btn').disabled = false;
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('open');
+  loadAll();
+}
+
+function formatDates(startDate, endDate) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const s = new Date(startDate + 'T00:00:00');
+  const e = new Date(endDate + 'T00:00:00');
+  const sm = months[s.getUTCMonth()], em = months[e.getUTCMonth()];
+  const sd = s.getUTCDate(), ed = e.getUTCDate();
+  const sy = s.getUTCFullYear();
+  if (sm === em) return sm + ' ' + sd + '–' + ed + ', ' + sy;
+  return sm + ' ' + sd + '–' + em + ' ' + ed + ', ' + sy;
+}
+
+async function runBulkImport() {
+  const raw = document.getElementById('import-json').value.trim();
+  const prog = document.getElementById('import-progress');
+  prog.innerHTML = '';
+  prog.classList.add('visible');
+
+  function log(msg, cls) {
+    const el = document.createElement('div');
+    el.className = 'import-row ' + cls;
+    el.textContent = msg;
+    prog.appendChild(el);
+    prog.scrollTop = prog.scrollHeight;
+  }
+
+  let rows;
+  try {
+    rows = JSON.parse(raw);
+    if (!Array.isArray(rows)) throw new Error('Expected a JSON array');
+  } catch (e) {
+    log('✗ Invalid JSON: ' + e.message, 'err');
+    return;
+  }
+
+  if (!rows.length) { log('No entries found.', 'info'); return; }
+
+  log('Importing ' + rows.length + ' tournament(s)…', 'info');
+  document.getElementById('import-run-btn').disabled = true;
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const name = (row.name || '').trim();
+    if (!name) { log('  [' + (i+1) + '] ✗ Missing "name" — skipped', 'err'); fail++; continue; }
+    if (!row.startDate || !row.endDate) { log('  [' + (i+1) + '] ✗ ' + name + ' — missing startDate/endDate', 'err'); fail++; continue; }
+    const payload = {
+      name,
+      location: (row.location || '').trim(),
+      dates: (row.dates || '').trim() || formatDates(row.startDate, row.endDate),
+      startDate: row.startDate,
+      endDate: row.endDate,
+      gender: row.gender || 'coed',
+      description: row.description || null,
+      imageUrl: row.imageUrl || null,
+    };
+    try {
+      await api('POST', '/tournaments', payload);
+      log('  [' + (i+1) + '] ✓ ' + name, 'ok');
+      ok++;
+    } catch (e) {
+      log('  [' + (i+1) + '] ✗ ' + name + ' — ' + e.message, 'err');
+      fail++;
+    }
+  }
+  log('Done. ' + ok + ' added, ' + fail + ' failed.', 'info');
+  document.getElementById('import-run-btn').disabled = false;
+}
 
 loadAll();
 </script>
