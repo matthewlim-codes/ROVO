@@ -29,15 +29,24 @@ function roundToNearestHalf(date: Date): Date {
 function InlineDatePicker({
   value,
   onChange,
+  maxDate,
 }: {
   value: Date;
   onChange: (d: Date) => void;
+  maxDate?: Date;
 }) {
   const colors = useColors();
-  const days = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    d.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const minLength = 14;
+  const daysUntilMax =
+    maxDate !== undefined
+      ? Math.floor((maxDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)) + 1
+      : 0;
+  const count = Math.max(minLength, daysUntilMax);
+  const days = Array.from({ length: count }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
     return d;
   });
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -417,6 +426,11 @@ export default function TravelInfoScreen() {
               <InlineDatePicker
                 value={datetime}
                 onChange={setDatetime}
+                maxDate={(() => {
+                  const d = new Date(selectedTournament.startDate + "T00:00:00");
+                  d.setDate(d.getDate() + 7);
+                  return d;
+                })()}
               />
             )}
           </View>
