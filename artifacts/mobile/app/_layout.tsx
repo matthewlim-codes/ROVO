@@ -31,7 +31,19 @@ const clerkTokenCache = Platform.OS !== "web" ? tokenCache : undefined;
 const queryClient = new QueryClient();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+
+// On web, derive the Clerk proxy URL from the current page origin so the app
+// works correctly from any domain (rovousa.com, gorovo.replit.app, etc.).
+// On native, fall back to the value baked in at build time.
+const proxyUrl: string | undefined = (() => {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return `${window.location.origin}/api/__clerk`;
+    }
+    return undefined;
+  }
+  return process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+})();
 
 function NotificationDeepLinkHandler() {
   useEffect(() => {
