@@ -10,10 +10,14 @@ router.get("/tournaments", async (req, res) => {
   try {
     const gender = typeof req.query.gender === "string" ? req.query.gender : undefined;
     const includePast = req.query.includePast === "true";
+    const includeHidden = req.query.includeHidden === "true";
 
     const conditions = [];
     if (!includePast) {
       conditions.push(gte(tournamentsTable.endDate, sql`CURRENT_DATE`));
+    }
+    if (!includeHidden) {
+      conditions.push(eq(tournamentsTable.hidden, false));
     }
     if (gender === "boys" || gender === "girls" || gender === "coed") {
       conditions.push(eq(tournamentsTable.gender, gender));

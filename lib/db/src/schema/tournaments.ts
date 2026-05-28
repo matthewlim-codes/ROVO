@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, date } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +14,7 @@ export const tournamentsTable = pgTable("tournaments", {
     .default("coed"),
   description: text("description"),
   imageUrl: text("image_url"),
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

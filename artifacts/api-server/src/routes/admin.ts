@@ -272,7 +272,7 @@ async function loadAll() {
   [clubs, codes, tournaments] = await Promise.all([
     api('GET', '/clubs'),
     api('GET', '/club-codes'),
-    api('GET', '/tournaments?includePast=true'),
+    api('GET', '/tournaments?includePast=true&includeHidden=true'),
   ]);
   renderClubs(); renderCodes(); renderTournaments();
 }
@@ -308,16 +308,27 @@ function renderCodes() {
 function renderTournaments() {
   const tb = document.getElementById('tournaments-table-body');
   if (!tournaments.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No tournaments yet.</td></tr>'; return; }
-  tb.innerHTML = tournaments.map(t => \`<tr>
-    <td>\${esc(t.name)}</td>
+  tb.innerHTML = tournaments.map(t => \`<tr style="\${t.hidden ? 'opacity:0.45' : ''}">
+    <td>\${esc(t.name)}\${t.hidden ? ' <span style="font-size:11px;color:var(--muted);font-weight:600">[hidden]</span>' : ''}</td>
     <td>\${esc(t.location)}</td>
     <td>\${esc(t.dates)}<div style="font-size:11px;color:var(--muted);margin-top:2px">\${esc(t.startDate || '')} → \${esc(t.endDate || '')}</div></td>
     <td><span class="badge" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE">\${esc((t.gender||'coed').toUpperCase())}</span></td>
     <td><div class="actions">
+      <button class="btn btn-ghost btn-sm" onclick="toggleHidden('\${t.id}', \${t.hidden})">\${t.hidden ? 'Unhide' : 'Hide'}</button>
       <button class="btn btn-ghost btn-sm" onclick="editTournament('\${t.id}')">Edit</button>
       <button class="btn btn-danger btn-sm" onclick="deleteItem('tournament','\${t.id}')">Delete</button>
     </div></td>
   </tr>\`).join('');
+}
+
+async function toggleHidden(id, currentlyHidden) {
+  try {
+    await api('PUT', '/tournaments/' + id, { hidden: !currentlyHidden });
+    toast(currentlyHidden ? 'Tournament unhidden' : 'Tournament hidden');
+    await loadAll();
+  } catch (e) {
+    toast(e.message, true);
+  }
 }
 
 function clubOptions(selectedId = '') {
