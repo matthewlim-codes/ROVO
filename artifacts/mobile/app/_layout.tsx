@@ -37,7 +37,15 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 // On native, fall back to the value baked in at build time.
 const proxyUrl: string | undefined = (() => {
   if (Platform.OS === "web") {
-    if (typeof window !== "undefined" && window.location?.origin) {
+    // Only use the dynamic proxy in production web builds, where build.js bakes
+    // EXPO_PUBLIC_CLERK_PROXY_URL="dynamic" as a sentinel. In the dev Replit
+    // preview the value is absent, so we skip the proxy entirely (Clerk loads
+    // directly from its CDN — the dev domain is not a registered Clerk proxy).
+    if (
+      process.env.EXPO_PUBLIC_CLERK_PROXY_URL === "dynamic" &&
+      typeof window !== "undefined" &&
+      window.location?.origin
+    ) {
       return `${window.location.origin}/api/__clerk`;
     }
     return undefined;

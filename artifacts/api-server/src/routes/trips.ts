@@ -134,7 +134,8 @@ router.post("/trips", requireAuth, async (req, res) => {
       (w) =>
         w.userId !== trip.userId &&
         (w.hotel === trip.hotel ||
-          (w.hotelPlaceId && trip.hotelPlaceId && w.hotelPlaceId === trip.hotelPlaceId)) &&
+          (w.hotelPlaceId && trip.hotelPlaceId && w.hotelPlaceId === trip.hotelPlaceId) ||
+          w.hotel.trim().toLowerCase() === trip.hotel.trim().toLowerCase()) &&
         Math.abs(new Date(w.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
     );
 

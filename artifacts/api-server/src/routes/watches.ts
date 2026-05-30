@@ -85,9 +85,8 @@ router.post("/watches", requireAuth, async (req, res) => {
       (t) =>
         t.userId !== watch.userId &&
         (t.hotel === watch.hotel ||
-          (t.hotelPlaceId &&
-            watch.hotelPlaceId &&
-            t.hotelPlaceId === watch.hotelPlaceId)) &&
+          (t.hotelPlaceId && watch.hotelPlaceId && t.hotelPlaceId === watch.hotelPlaceId) ||
+          t.hotel.trim().toLowerCase() === watch.hotel.trim().toLowerCase()) &&
         Math.abs(new Date(t.datetime).getTime() - watchTime) <= FORTY_FIVE_MIN_MS,
     );
 
