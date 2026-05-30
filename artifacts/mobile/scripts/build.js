@@ -297,10 +297,13 @@ async function downloadBundlesAndManifests(timestamp) {
   console.log("This may take several minutes for production builds...");
 
   try {
-    // Bundles are sequential — Metro can't handle both platforms simultaneously
-    // without stalling. Manifests are cheap and run in parallel after.
-    await downloadBundle("ios", timestamp);
-    await downloadBundle("android", timestamp);
+    // Download both platforms in parallel — Metro 0.80+ handles concurrent
+    // bundle requests without stalling, and parallel downloads cut the total
+    // bundle time roughly in half (critical for staying within build timeout).
+    await Promise.all([
+      downloadBundle("ios", timestamp),
+      downloadBundle("android", timestamp),
+    ]);
 
     const [iosManifest, androidManifest] = await Promise.all([
       downloadManifest("ios"),

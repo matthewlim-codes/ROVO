@@ -1,0 +1,1 @@
+- [Deployment build timeout](build-timeout.md) — Cloud Run ~2min budget; iOS+Android sequential bundles exceed it; fix is Promise.all parallel downloads.
