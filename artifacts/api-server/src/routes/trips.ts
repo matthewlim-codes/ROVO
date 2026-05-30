@@ -27,6 +27,17 @@ const createTripBody = z.object({
   partySize: z.number().int().min(1).nullable().optional(),
 });
 
+function hotelsMatch(
+  hotelA: string,
+  placeIdA: string | null | undefined,
+  hotelB: string,
+  placeIdB: string | null | undefined,
+): boolean {
+  if (hotelA.trim().toLowerCase() === hotelB.trim().toLowerCase()) return true;
+  if (placeIdA && placeIdB && placeIdA === placeIdB) return true;
+  return false;
+}
+
 router.get("/trips", async (req, res) => {
   const tournamentId =
     typeof req.query.tournamentId === "string" ? req.query.tournamentId : undefined;
@@ -55,8 +66,6 @@ router.get("/trips/matches", requireAuth, async (req, res) => {
     if (!trip) {
       return res.status(404).json({ error: "Trip not found" });
     }
-
-    const tripTime = new Date(trip.datetime).getTime();
 
     const matches = await db
       .select()
@@ -117,6 +126,48 @@ router.post("/trips", requireAuth, async (req, res) => {
       })
       .returning();
 
+    const tripTime = new Date(trip.datetime).getTime();
+
+    // --- Match against existing trips (trip-to-trip) ---
+    const existingTrips = await db
+      .select()
+      .from(tripsTable)
+      .where(
+        and(
+          eq(tripsTable.tournamentId, trip.tournamentId),
+          eq(tripsTable.mode, trip.mode),
+          eq(tripsTable.airport, trip.airport),
+          ne(tripsTable.userId, trip.userId),
+        ),
+      );
+
+    const matchedTrips = existingTrips.filter(
+      (t) =>
+        hotelsMatch(t.hotel, t.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
+        Math.abs(new Date(t.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
+    );
+
+    if (matchedTrips.length) {
+      const title = "Someone matched your ride!";
+      const body = `${trip.userName} is going ${trip.mode === "arrival" ? "to" : "from"} ${trip.hotel} via ${trip.airport}.`;
+      await db.insert(notificationsTable).values(
+        matchedTrips.map((t) => ({
+          userId: t.userId,
+          kind: "ride_match",
+          title,
+          body,
+          data: { tournamentId: trip.tournamentId, tripId: trip.id, mode: trip.mode },
+        })),
+      );
+      await sendPushToUsers(
+        matchedTrips.map((t) => t.userId),
+        title,
+        body,
+        { tournamentId: trip.tournamentId, tripId: trip.id },
+      );
+    }
+
+    // --- Match against active watches (trip-to-watch) ---
     const watches = await db
       .select()
       .from(rideWatchesTable)
@@ -129,21 +180,18 @@ router.post("/trips", requireAuth, async (req, res) => {
         ),
       );
 
-    const tripTime = new Date(trip.datetime).getTime();
-    const matched = watches.filter(
+    const matchedWatches = watches.filter(
       (w) =>
         w.userId !== trip.userId &&
-        (w.hotel === trip.hotel ||
-          (w.hotelPlaceId && trip.hotelPlaceId && w.hotelPlaceId === trip.hotelPlaceId) ||
-          w.hotel.trim().toLowerCase() === trip.hotel.trim().toLowerCase()) &&
+        hotelsMatch(w.hotel, w.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
         Math.abs(new Date(w.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
     );
 
-    if (matched.length) {
+    if (matchedWatches.length) {
       const title = "Someone matched your ride!";
       const body = `${trip.userName} is going ${trip.mode === "arrival" ? "to" : "from"} ${trip.hotel} via ${trip.airport}.`;
       await db.insert(notificationsTable).values(
-        matched.map((w) => ({
+        matchedWatches.map((w) => ({
           userId: w.userId,
           kind: "ride_match",
           title,
@@ -152,7 +200,7 @@ router.post("/trips", requireAuth, async (req, res) => {
         })),
       );
       await Promise.all(
-        matched.map((w) =>
+        matchedWatches.map((w) =>
           db
             .update(rideWatchesTable)
             .set({ active: "false" })
@@ -160,7 +208,7 @@ router.post("/trips", requireAuth, async (req, res) => {
         ),
       );
       await sendPushToUsers(
-        matched.map((w) => w.userId),
+        matchedWatches.map((w) => w.userId),
         title,
         body,
         { tournamentId: trip.tournamentId, tripId: trip.id },
@@ -187,7 +235,49 @@ router.delete("/trips/:id", requireAuth, async (req, res) => {
     if (trip.userId !== userId) {
       return res.status(403).json({ error: "Not your trip" });
     }
+
+    // Find matched trips BEFORE deleting so we can notify them
+    const tripTime = new Date(trip.datetime).getTime();
+    const candidateTrips = await db
+      .select()
+      .from(tripsTable)
+      .where(
+        and(
+          eq(tripsTable.tournamentId, trip.tournamentId),
+          eq(tripsTable.mode, trip.mode),
+          eq(tripsTable.airport, trip.airport),
+          ne(tripsTable.userId, trip.userId),
+        ),
+      );
+
+    const cancelledMatches = candidateTrips.filter(
+      (t) =>
+        hotelsMatch(t.hotel, t.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
+        Math.abs(new Date(t.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
+    );
+
     await db.delete(tripsTable).where(eq(tripsTable.id, id));
+
+    if (cancelledMatches.length) {
+      const title = "A rideshare match was cancelled";
+      const body = `${trip.userName} removed their ${trip.mode} trip via ${trip.airport}.`;
+      await db.insert(notificationsTable).values(
+        cancelledMatches.map((t) => ({
+          userId: t.userId,
+          kind: "ride_cancelled",
+          title,
+          body,
+          data: { tournamentId: trip.tournamentId, mode: trip.mode },
+        })),
+      );
+      await sendPushToUsers(
+        cancelledMatches.map((t) => t.userId),
+        title,
+        body,
+        { tournamentId: trip.tournamentId },
+      );
+    }
+
     res.status(204).end();
   } catch (e) {
     res.status(500).json({ error: "Failed to delete trip" });
