@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Trip, useTrip } from "@/context/TripContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
 
@@ -57,6 +59,7 @@ export default function RideshareMatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { selectedTournament, trips, deleteTrip } = useTrip();
+  const { unread } = useNotifications();
   const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
 
   const [matches, setMatches] = useState<RideshareMatch[]>([]);
@@ -65,6 +68,7 @@ export default function RideshareMatchesScreen() {
   const [error, setError] = useState("");
   const [sheetVisible, setSheetVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const prevUnreadCountRef = useRef(unread.length);
 
   const paramTrip: Trip | null = React.useMemo(() => {
     if (!tripJson) return null;
@@ -95,6 +99,22 @@ export default function RideshareMatchesScreen() {
     fetchMatches();
     const interval = setInterval(fetchMatches, 30000);
     return () => clearInterval(interval);
+  }, [fetchMatches]);
+
+  // Refresh immediately when a new unread notification arrives (e.g. a ride match)
+  useEffect(() => {
+    if (unread.length > prevUnreadCountRef.current) {
+      fetchMatches();
+    }
+    prevUnreadCountRef.current = unread.length;
+  }, [unread.length, fetchMatches]);
+
+  // Refresh when the app returns to the foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") fetchMatches();
+    });
+    return () => sub.remove();
   }, [fetchMatches]);
 
   const handleRefresh = () => {
