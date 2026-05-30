@@ -1,8 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startCleanupJob } from "./lib/cleanup";
-import { startDiscoveryJob } from "./lib/tournamentDiscovery";
-
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
@@ -18,7 +16,6 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 startCleanupJob();
-startDiscoveryJob();
 
 app.listen(port, (err) => {
   if (err) {
