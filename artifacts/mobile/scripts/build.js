@@ -8,6 +8,24 @@ let metroProcess = null;
 
 const projectRoot = path.resolve(__dirname, "..");
 
+// Load .env file into process.env so EXPO_PUBLIC_* vars are available
+// to the build script itself (Metro loads .env on its own, but the build
+// script is a plain Node process that doesn't get that treatment).
+(function loadDotEnv() {
+  const envFile = path.join(projectRoot, ".env");
+  if (!fs.existsSync(envFile)) return;
+  const lines = fs.readFileSync(envFile, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (!(key in process.env)) process.env[key] = val;
+  }
+})();
+
 function findWorkspaceRoot(startDir) {
   let dir = startDir;
   while (dir !== path.dirname(dir)) {
