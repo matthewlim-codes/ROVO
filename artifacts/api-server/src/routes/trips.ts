@@ -8,6 +8,7 @@ import {
 import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { sendPushToUsers } from "../lib/push";
+import { recordMatchEvents } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
 
@@ -148,6 +149,8 @@ router.post("/trips", requireAuth, async (req, res) => {
     );
 
     if (matchedTrips.length) {
+      await recordMatchEvents(trip, matchedTrips);
+
       const title = "Someone matched your ride!";
       const body = `${trip.userName} is going ${trip.mode === "arrival" ? "to" : "from"} ${trip.hotel} via ${trip.airport}.`;
       await db.insert(notificationsTable).values(

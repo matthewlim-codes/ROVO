@@ -67,6 +67,11 @@ const ADMIN_HTML = `<!DOCTYPE html>
   .import-row.info { color: var(--muted); }
   .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
   .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .metric-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .metric-value { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .metric-label { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .metric-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .toast { position: fixed; bottom: 24px; right: 24px; background: var(--primary); color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 1000; transform: translateY(80px); opacity: 0; transition: all 0.3s ease; pointer-events: none; }
   .toast.show { transform: translateY(0); opacity: 1; }
   @media (max-width: 600px) { .form-row.cols-2, .form-row.cols-3 { grid-template-columns: 1fr; } }
@@ -85,6 +90,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
   <div class="tab active" onclick="switchTab('clubs')">Clubs</div>
   <div class="tab" onclick="switchTab('codes')">Club Codes</div>
   <div class="tab" onclick="switchTab('tournaments')">Tournaments</div>
+  <div class="tab" onclick="switchTab('metrics')">Metrics</div>
   <div class="tab" onclick="switchTab('feedback')">Feedback</div>
 </div>
 
@@ -113,6 +119,23 @@ const ADMIN_HTML = `<!DOCTYPE html>
       <table>
         <thead><tr><th>Code</th><th>Club</th><th>Team Name</th><th>Actions</th></tr></thead>
         <tbody id="codes-table-body"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div id="tab-metrics" class="section">
+    <div class="metrics-grid" id="metrics-cards">
+      <div class="metric-card"><div class="metric-value">—</div><div class="metric-label">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h2>Post-ride survey responses</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadMetrics()">Refresh</button>
+      </div>
+      <table>
+        <thead><tr><th>When</th><th>Family</th><th>Rating</th><th>Money saved</th><th>Notes</th></tr></thead>
+        <tbody id="metrics-surveys-body"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -207,14 +230,52 @@ let currentTab = 'clubs';
 let clubs = [], codes = [], tournaments = [], feedback = [];
 let editingId = null, editingType = null;
 
+function pct(n) { return Math.round(n * 100) + '%'; }
+
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', ['clubs','codes','tournaments','feedback'][i] === tab);
+    el.classList.toggle('active', ['clubs','codes','tournaments','metrics','feedback'][i] === tab);
   });
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'feedback') loadFeedback();
+  if (tab === 'metrics') loadMetrics();
+}
+
+async function loadMetrics() {
+  const cards = document.getElementById('metrics-cards');
+  const tb = document.getElementById('metrics-surveys-body');
+  try {
+    const m = await api('GET', '/metrics');
+    cards.innerHTML =
+      '<div class="metric-card"><div class="metric-value">' + m.familiesSignedUp + '</div><div class="metric-label">Families signed up</div><div class="metric-sub">Completed club code entry</div></div>' +
+      '<div class="metric-card"><div class="metric-value">' + m.familiesSeekingMatch + '</div><div class="metric-label">Used app to find a match</div><div class="metric-sub">' + pct(m.conversionRates.signupToSeeking) + ' of signed up</div></div>' +
+      '<div class="metric-card"><div class="metric-value">' + m.familiesMatched + '</div><div class="metric-label">Families matched</div><div class="metric-sub">' + pct(m.conversionRates.seekingToMatched) + ' of seekers · ' + m.totalMatchEvents + ' match events</div></div>' +
+      '<div class="metric-card"><div class="metric-value">' + m.surveys.totalResponses + '</div><div class="metric-label">Ride surveys answered</div><div class="metric-sub">' + m.surveys.totalDismissed + ' dismissed</div></div>' +
+      '<div class="metric-card"><div class="metric-value">$' + m.surveys.totalMoneySaved + '</div><div class="metric-label">Total reported savings</div><div class="metric-sub">Avg $' + m.surveys.averageMoneySaved + ' per response</div></div>' +
+      '<div class="metric-card"><div class="metric-value">' + pct(m.conversionRates.signupToMatched) + '</div><div class="metric-label">Sign-up → matched</div><div class="metric-sub">Great: ' + m.surveys.byRating.great + ' · Good: ' + m.surveys.byRating.good + ' · Okay: ' + m.surveys.byRating.okay + '</div></div>';
+
+    if (!m.recentSurveys.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="empty">No survey responses yet.</td></tr>';
+      return;
+    }
+    tb.innerHTML = m.recentSurveys.map(s => {
+      const when = new Date(s.createdAt).toLocaleString();
+      const from = s.userName ? esc(s.userName) + (s.userEmail ? ' (' + esc(s.userEmail) + ')' : '') : esc(s.userEmail || 'Unknown');
+      const money = s.moneySavedDollars != null ? '$' + s.moneySavedDollars : '—';
+      return '<tr>' +
+        '<td style="white-space:nowrap;color:var(--muted);font-size:12px">' + esc(when) + '</td>' +
+        '<td>' + from + '</td>' +
+        '<td><span class="badge">' + esc(s.rating || '') + '</span></td>' +
+        '<td>' + esc(money) + '</td>' +
+        '<td style="white-space:pre-wrap">' + esc(s.notes || '') + '</td>' +
+      '</tr>';
+    }).join('');
+  } catch (e) {
+    cards.innerHTML = '<div class="metric-card"><div class="metric-value">!</div><div class="metric-label">Error</div><div class="metric-sub">' + esc(e.message) + '</div></div>';
+    tb.innerHTML = '<tr><td colspan="5" class="empty">' + esc(e.message) + '</td></tr>';
+  }
 }
 
 async function loadFeedback() {

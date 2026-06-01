@@ -12,6 +12,8 @@ import pushTokensRouter from "./pushTokens";
 import notificationsRouter from "./notifications";
 import profileRouter from "./profile";
 import messagesRouter from "./messages";
+import metricsRouter from "./metrics";
+import surveysRouter from "./surveys";
 
 const router: IRouter = Router();
 
@@ -27,6 +29,8 @@ router.use(pushTokensRouter);
 router.use(notificationsRouter);
 router.use(profileRouter);
 router.use(messagesRouter);
+router.use(metricsRouter);
+router.use(surveysRouter);
 router.use(adminRouter);
 
 export default router;

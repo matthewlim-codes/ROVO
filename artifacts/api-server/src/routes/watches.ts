@@ -8,6 +8,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { sendPushToUsers } from "../lib/push";
+import { recordWatchMatchEvent } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
 
@@ -92,6 +93,16 @@ router.post("/watches", requireAuth, async (req, res) => {
 
     if (matched.length) {
       const m = matched[0];
+      await recordWatchMatchEvent(
+        {
+          userId: watch.userId,
+          tournamentId: watch.tournamentId,
+          mode: watch.mode,
+          datetime: watch.datetime,
+        },
+        m,
+      );
+
       const title = "Someone is heading the same way!";
       const body = `${m.userName} is going ${m.mode === "arrival" ? "to" : "from"} ${m.hotel} via ${m.airport}.`;
       await db.insert(notificationsTable).values({

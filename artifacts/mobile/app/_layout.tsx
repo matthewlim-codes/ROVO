@@ -19,6 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBanner } from "@/components/NotificationBanner";
+import { SurveyPromptHandler } from "@/components/SurveyPromptHandler";
 import { AuthProvider } from "@/context/AuthContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 import { TripProvider } from "@/context/TripContext";
@@ -127,6 +128,7 @@ export default function RootLayout() {
                   <NotificationsProvider>
                     <TripProvider>
                       <NotificationBanner />
+                      <SurveyPromptHandler />
                       <RootLayoutNav />
                     </TripProvider>
                   </NotificationsProvider>

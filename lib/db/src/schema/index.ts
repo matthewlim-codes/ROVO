@@ -8,3 +8,5 @@ export * from "./notifications";
 export * from "./feedback";
 export * from "./userProfiles";
 export * from "./chatMessages";
+export * from "./matchEvents";
+export * from "./rideSurveys";
