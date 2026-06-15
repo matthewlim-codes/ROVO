@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +19,7 @@ import { Input } from "@/components/Input";
 import { useAuth } from "@/context/AuthContext";
 import { useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
+import { buildRideshareGroupId } from "@/utils/tripShare";
 import { formatDateTime } from "@/utils/time";
 
 function roundToNearestHalf(date: Date): Date {
@@ -223,8 +224,19 @@ function InlineDatePicker({
 export default function TravelInfoScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{
+    joinShareId?: string;
+    joinTargetTripId?: string;
+    joinFamilyName?: string;
+    joinHotel?: string;
+    prefillMode?: "arrival" | "departure";
+    prefillAirport?: string;
+    prefillHotel?: string;
+    prefillHotelPlaceId?: string;
+    prefillDatetime?: string;
+  }>();
   const { user } = useAuth();
-  const { selectedTournament, saveTrip } = useTrip();
+  const { selectedTournament, saveTrip, refreshTrips } = useTrip();
 
   const [mode, setMode] = useState<"arrival" | "departure">("arrival");
   const [airport, setAirport] = useState<AirportResult | null>(null);
@@ -235,6 +247,37 @@ export default function TravelInfoScreen() {
   const [partySize, setPartySize] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (params.prefillMode === "arrival" || params.prefillMode === "departure") {
+      setMode(params.prefillMode);
+    }
+    if (params.prefillAirport) {
+      setAirport({
+        placeId: `shared-${params.prefillAirport}`,
+        name: params.prefillAirport,
+        address: "Shared trip airport",
+        iataCode: params.prefillAirport.length <= 4 ? params.prefillAirport : null,
+      });
+    }
+    if (params.prefillHotel) {
+      setHotel({
+        placeId: params.prefillHotelPlaceId || `shared-${params.prefillHotel}`,
+        name: params.prefillHotel,
+        address: "",
+      });
+    }
+    if (params.prefillDatetime) {
+      const parsed = new Date(params.prefillDatetime);
+      if (!Number.isNaN(parsed.getTime())) setDatetime(parsed);
+    }
+  }, [
+    params.prefillAirport,
+    params.prefillDatetime,
+    params.prefillHotel,
+    params.prefillHotelPlaceId,
+    params.prefillMode,
+  ]);
 
   if (!selectedTournament) {
     router.replace("/tournaments");
@@ -267,15 +310,29 @@ export default function TravelInfoScreen() {
         baggageCount: baggage ? parseInt(baggage) : undefined,
         partySize: partySize ? parseInt(partySize) : undefined,
       });
+      if (params.joinTargetTripId && trip.id.startsWith("srv-")) {
+        await refreshTrips(selectedTournament.id);
+        const groupId = buildRideshareGroupId(trip.id, params.joinTargetTripId);
+        router.replace(`/chat/${encodeURIComponent(groupId)}`);
+        return;
+      }
       if (mode === "arrival") {
         router.push({
           pathname: "/rideshare-matches",
-          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+          params: {
+            tripId: trip.id,
+            tripJson: JSON.stringify(trip),
+            showShareCard: "1",
+          },
         });
       } else {
         router.push({
           pathname: "/matches",
-          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+          params: {
+            tripId: trip.id,
+            tripJson: JSON.stringify(trip),
+            showShareCard: "1",
+          },
         });
       }
     } catch {
@@ -334,6 +391,23 @@ export default function TravelInfoScreen() {
               { backgroundColor: colors.card, borderRadius: 18 },
             ]}
           >
+            {params.joinFamilyName && params.joinHotel ? (
+              <View
+                style={[
+                  styles.joinBanner,
+                  {
+                    backgroundColor: colors.accentSurface,
+                    borderColor: colors.accentBorder,
+                  },
+                ]}
+              >
+                <Feather name="users" size={17} color={colors.accent} />
+                <Text style={[styles.joinBannerText, { color: colors.foreground }]}>
+                  You're joining {params.joinFamilyName}'s trip to {params.joinHotel}.
+                  Enter your own travel details, then we'll open a message thread.
+                </Text>
+              </View>
+            ) : null}
             <Text
               style={[styles.sectionLabel, { color: colors.mutedForeground }]}
             >
@@ -569,6 +643,20 @@ const styles = StyleSheet.create({
     gap: 14,
     boxShadow: "0px 1px 6px rgba(0,0,0,0.04)",
     elevation: 1,
+  },
+  joinBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  joinBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 19,
   },
   sectionLabel: {
     fontSize: 13,

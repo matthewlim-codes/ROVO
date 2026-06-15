@@ -9,13 +9,13 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { TripShareSheet } from "@/components/TripShareSheet";
 import { Trip, useTrip } from "@/context/TripContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useColors } from "@/hooks/useColors";
@@ -60,15 +60,21 @@ export default function RideshareMatchesScreen() {
   const insets = useSafeAreaInsets();
   const { selectedTournament, trips, deleteTrip } = useTrip();
   const { unread } = useNotifications();
-  const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
+  const { tripId, tripJson, showShareCard } = useLocalSearchParams<{
+    tripId: string;
+    tripJson?: string;
+    showShareCard?: string;
+  }>();
 
   const [matches, setMatches] = useState<RideshareMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const prevUnreadCountRef = useRef(unread.length);
+  const sharePromptShownRef = useRef(false);
 
   const paramTrip: Trip | null = React.useMemo(() => {
     if (!tripJson) return null;
@@ -117,6 +123,12 @@ export default function RideshareMatchesScreen() {
     return () => sub.remove();
   }, [fetchMatches]);
 
+  useEffect(() => {
+    if (showShareCard !== "1" || !myTrip || sharePromptShownRef.current) return;
+    sharePromptShownRef.current = true;
+    setShareSheetVisible(true);
+  }, [myTrip, showShareCard]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchMatches();
@@ -143,16 +155,7 @@ export default function RideshareMatchesScreen() {
 
   const handleShare = async () => {
     setSheetVisible(false);
-    const tournamentName = selectedTournament?.name ?? "the tournament";
-    const mode = isArrival ? "arriving at" : "departing from";
-    const airport = myTrip?.airport ?? "the airport";
-    try {
-      await Share.share({
-        message: `Hey! I'm using Rovo to coordinate my rideshare for ${tournamentName}. I'm ${mode} ${airport} — download Rovo and save your trip so we can match up!`,
-      });
-    } catch {
-      // dismissed
-    }
+    setShareSheetVisible(true);
   };
 
   const renderPrimaryCard = (primary: RideshareMatch, secondaries: RideshareMatch[]) => (
@@ -583,6 +586,13 @@ export default function RideshareMatchesScreen() {
           </Pressable>
         </View>
       </Modal>
+
+      <TripShareSheet
+        visible={shareSheetVisible}
+        trip={myTrip}
+        tournament={selectedTournament}
+        onClose={() => setShareSheetVisible(false)}
+      />
     </View>
   );
 }

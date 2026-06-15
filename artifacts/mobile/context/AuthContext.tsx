@@ -38,7 +38,7 @@ export interface User {
 }
 
 function isAdminEmail(email: string): boolean {
-  const raw = process.env.EXPO_PUBLIC_ADMIN_EMAILS ?? "";
+  const raw: string = process.env.EXPO_PUBLIC_ADMIN_EMAILS ?? "";
   const list = raw
     .split(",")
     .map((s) => s.trim().toLowerCase())

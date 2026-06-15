@@ -84,6 +84,8 @@ function RootLayoutNav() {
         <Stack.Screen name="tournaments" />
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="travel-info" />
+        <Stack.Screen name="trip/[shareId]" />
+        <Stack.Screen name="share-matches" />
         <Stack.Screen name="matches" />
         <Stack.Screen name="rideshare-matches" />
         <Stack.Screen name="chat/[groupId]" />

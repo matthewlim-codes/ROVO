@@ -10,3 +10,4 @@ export * from "./userProfiles";
 export * from "./chatMessages";
 export * from "./matchEvents";
 export * from "./rideSurveys";
+export * from "./tripShares";
