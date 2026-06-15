@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/rovo-video/"
+title = "Rovo Marketing Video"
+version = "1.0.0"
+id = "artifacts/rovo-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/rovo-video/" ]
+localPort = 20261
+
+[services.development]
+run = "pnpm --filter @workspace/rovo-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/rovo-video", "run", "build" ]
+publicDir = "artifacts/rovo-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20261"
+BASE_PATH = "/rovo-video/"
