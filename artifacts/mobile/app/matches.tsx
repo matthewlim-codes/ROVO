@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MatchCard } from "@/components/MatchCard";
+import { TripShareSheet } from "@/components/TripShareSheet";
 import { useAuth } from "@/context/AuthContext";
 import { Trip, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
@@ -22,11 +23,17 @@ import { apiFetch } from "@/utils/api";
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { tripId, tripJson } = useLocalSearchParams<{ tripId: string; tripJson?: string }>();
+  const { tripId, tripJson, showShareCard } = useLocalSearchParams<{
+    tripId: string;
+    tripJson?: string;
+    showShareCard?: string;
+  }>();
   const { trips, tripsLoading, refreshTrips, selectedTournament, getMatches } = useTrip();
   const { user } = useAuth();
   const [watching, setWatching] = useState(false);
   const [watchSubmitting, setWatchSubmitting] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const sharePromptShownRef = useRef(false);
 
   const paramTrip: Trip | null = useMemo(() => {
     if (!tripJson) return null;
@@ -44,6 +51,12 @@ export default function MatchesScreen() {
       refreshTrips(selectedTournament.id);
     }
   }, [selectedTournament?.id, refreshTrips]);
+
+  useEffect(() => {
+    if (showShareCard !== "1" || !trip || sharePromptShownRef.current) return;
+    sharePromptShownRef.current = true;
+    setShareSheetVisible(true);
+  }, [showShareCard, trip]);
 
   const handleNotifyMe = async () => {
     if (!trip || !user) return;
@@ -140,6 +153,12 @@ export default function MatchesScreen() {
         >
           <Feather name="edit-2" size={16} color={colors.foreground} />
         </Pressable>
+        <Pressable
+          onPress={() => setShareSheetVisible(true)}
+          style={[styles.editBtn, { backgroundColor: colors.muted }]}
+        >
+          <Feather name="share-2" size={16} color={colors.foreground} />
+        </Pressable>
       </View>
 
       <View
@@ -206,6 +225,25 @@ export default function MatchesScreen() {
             {matches.map((group) => (
               <MatchCard key={group.groupId} group={group} />
             ))}
+            <Pressable
+              onPress={() => setShareSheetVisible(true)}
+              style={({ pressed }) => [
+                styles.inviteNudge,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.separator,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Feather name="share-2" size={15} color={colors.accent} />
+              <Text style={[styles.inviteNudgeText, { color: colors.mutedForeground }]}>
+                Forward your trip card to more parents{" "}
+                <Text style={{ color: colors.accent, fontFamily: "Inter_600SemiBold" }}>
+                  Share now
+                </Text>
+              </Text>
+            </Pressable>
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -234,32 +272,61 @@ export default function MatchesScreen() {
                 </Text>
               </View>
             ) : (
-              <Pressable
-                onPress={handleNotifyMe}
-                disabled={watchSubmitting}
-                style={({ pressed }) => [
-                  styles.notifyBtn,
-                  {
-                    backgroundColor: colors.foreground,
-                    opacity: pressed || watchSubmitting ? 0.85 : 1,
-                  },
-                ]}
-              >
-                {watchSubmitting ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <>
-                    <Feather name="bell" size={15} color={colors.background} />
-                    <Text style={[styles.notifyBtnText, { color: colors.background }]}>
-                      Notify me when someone matches
-                    </Text>
-                  </>
-                )}
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={() => setShareSheetVisible(true)}
+                  style={({ pressed }) => [
+                    styles.notifyBtn,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <Feather name="share-2" size={15} color={colors.primaryForeground} />
+                  <Text
+                    style={[
+                      styles.notifyBtnText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    Share my trip card
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleNotifyMe}
+                  disabled={watchSubmitting}
+                  style={({ pressed }) => [
+                    styles.secondaryNotifyBtn,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.separator,
+                      opacity: pressed || watchSubmitting ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  {watchSubmitting ? (
+                    <ActivityIndicator color={colors.foreground} />
+                  ) : (
+                    <>
+                      <Feather name="bell" size={15} color={colors.foreground} />
+                      <Text style={[styles.notifyBtnText, { color: colors.foreground }]}>
+                        Notify me when someone matches
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              </>
             )}
           </View>
         )}
       </ScrollView>
+      <TripShareSheet
+        visible={shareSheetVisible}
+        trip={trip}
+        tournament={selectedTournament}
+        onClose={() => setShareSheetVisible(false)}
+      />
     </View>
   );
 }
@@ -398,9 +465,34 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     marginTop: 8,
   },
+  secondaryNotifyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
   notifyBtnText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  inviteNudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  inviteNudgeText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 18,
   },
   watchingPill: {
     flexDirection: "row",

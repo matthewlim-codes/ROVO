@@ -270,12 +270,20 @@ export default function TravelInfoScreen() {
       if (mode === "arrival") {
         router.push({
           pathname: "/rideshare-matches",
-          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+          params: {
+            tripId: trip.id,
+            tripJson: JSON.stringify(trip),
+            showShareCard: "1",
+          },
         });
       } else {
         router.push({
           pathname: "/matches",
-          params: { tripId: trip.id, tripJson: JSON.stringify(trip) },
+          params: {
+            tripId: trip.id,
+            tripJson: JSON.stringify(trip),
+            showShareCard: "1",
+          },
         });
       }
     } catch {
