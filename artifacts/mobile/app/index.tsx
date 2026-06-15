@@ -5,12 +5,14 @@ import { ActivityIndicator, View } from "react-native";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { PENDING_JOIN_SHARE_KEY } from "@/utils/tripShare";
 
 export default function Index() {
   const { user, isLoading } = useAuth();
   const colors = useColors();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+  const [pendingShareId, setPendingShareId] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem("rsg_onboarding_done")
@@ -23,6 +25,18 @@ export default function Index() {
         setOnboardingChecked(true);
       });
   }, []);
+
+  useEffect(() => {
+    if (!user?.clubCodeEntered) return;
+    AsyncStorage.getItem(PENDING_JOIN_SHARE_KEY)
+      .then((value) => {
+        if (value) {
+          setPendingShareId(value);
+          AsyncStorage.removeItem(PENDING_JOIN_SHARE_KEY).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [user?.clubCodeEntered]);
 
   if (isLoading || !onboardingChecked) {
     return (
@@ -42,6 +56,10 @@ export default function Index() {
 
   if (!user.clubCodeEntered) {
     return <Redirect href="/club-code" />;
+  }
+
+  if (pendingShareId) {
+    return <Redirect href={`/trip/${encodeURIComponent(pendingShareId)}`} />;
   }
 
   return <Redirect href="/tournaments" />;

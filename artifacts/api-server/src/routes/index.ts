@@ -14,6 +14,7 @@ import profileRouter from "./profile";
 import messagesRouter from "./messages";
 import metricsRouter from "./metrics";
 import surveysRouter from "./surveys";
+import tripSharesRouter from "./tripShares";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,7 @@ router.use(profileRouter);
 router.use(messagesRouter);
 router.use(metricsRouter);
 router.use(surveysRouter);
+router.use(tripSharesRouter);
 router.use(adminRouter);
 
 export default router;

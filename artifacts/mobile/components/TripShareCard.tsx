@@ -1,11 +1,13 @@
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { forwardRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
-import { useColors } from "@/hooks/useColors";
 import {
-  formatTripShareDateTime,
+  formatTripShareTime,
+  getFamilyName,
+  getPeopleLabel,
+  truncateTournamentName,
   TripShareDetails,
 } from "@/utils/tripShare";
 
@@ -15,261 +17,278 @@ interface TripShareCardProps {
   showQr?: boolean;
 }
 
-export function TripShareCard({
-  details,
-  shareUrl,
-  showQr = true,
-}: TripShareCardProps) {
-  const colors = useColors();
-  const modeLabel = details.mode === "arrival" ? "Arriving" : "Departing";
-  const direction = details.mode === "arrival" ? "at" : "from";
+export const TripShareCard = forwardRef<View, TripShareCardProps>(function TripShareCard(
+  { details, shareUrl, showQr = true },
+  ref,
+) {
+  const modeLabel = details.mode === "arrival" ? "Arrival" : "Departure";
+  const familyName = getFamilyName(details.userName);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <View style={[styles.brandRow, { borderBottomColor: colors.separator }]}>
-        <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
-          <Text style={styles.logoText}>R</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.brandTitle, { color: colors.foreground }]}>
-            Rovo trip card
+    <View ref={ref} collapsable={false} style={styles.captureWrap}>
+      <View style={styles.card}>
+        <View style={styles.banner}>
+          <Text style={styles.bannerEyebrow}>Rovo Travel Info Card</Text>
+          <Text style={styles.tournamentName} numberOfLines={1}>
+            {truncateTournamentName(details.tournamentName)}
           </Text>
-          <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>
-            Forward this to coordinate a tournament ride
+          <Text style={styles.tournamentDate} numberOfLines={1}>
+            {details.tournamentDates ?? "Tournament dates"}
           </Text>
         </View>
-      </View>
 
-      <View style={styles.hero}>
-        <Text style={[styles.name, { color: colors.foreground }]}>
-          {details.userName}
-        </Text>
-        {details.userTeam ? (
-          <Text style={[styles.team, { color: colors.mutedForeground }]}>
-            {details.userTeam}
-          </Text>
-        ) : null}
-        <Text style={[styles.tripLine, { color: colors.foreground }]}>
-          {modeLabel} {direction}{" "}
-          <Text style={{ fontFamily: "Inter_700Bold" }}>{details.airport}</Text>
-        </Text>
-      </View>
+        <View style={styles.body}>
+          <View style={styles.section}>
+            <View style={styles.sectionIcon}>
+              <Feather name="map-pin" size={18} color="#0F766E" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionLabel}>Airport</Text>
+              <View style={styles.airportRow}>
+                <Text style={styles.airportCode}>{details.airport}</Text>
+                <View style={styles.timePill}>
+                  <Text style={styles.timePillLabel}>{modeLabel}</Text>
+                  <Text style={styles.timePillValue}>
+                    {formatTripShareTime(details.datetime)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-      <View style={styles.detailGrid}>
-        <InfoRow icon="calendar" label="Tournament" value={details.tournamentName} />
-        <InfoRow
-          icon="clock"
-          label="Time"
-          value={formatTripShareDateTime(details.datetime)}
-        />
-        <InfoRow icon="home" label="Hotel" value={details.hotel} />
-        {details.tournamentLocation ? (
-          <InfoRow
-            icon="map-pin"
-            label="Location"
-            value={details.tournamentLocation}
-          />
-        ) : null}
-      </View>
+          <View style={styles.divider} />
 
-      {(details.partySize || details.baggageCount) && (
-        <View style={styles.badgeRow}>
-          {details.partySize ? (
-            <View style={[styles.badge, { backgroundColor: colors.muted }]}>
-              <Feather name="users" size={13} color={colors.mutedForeground} />
-              <Text style={[styles.badgeText, { color: colors.mutedForeground }]}>
-                {details.partySize}{" "}
-                {details.partySize === 1 ? "person" : "people"}
+          <View style={styles.section}>
+            <View style={styles.sectionIcon}>
+              <Feather name="home" size={18} color="#0F766E" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionLabel}>Hotel</Text>
+              <Text style={styles.sectionValue} numberOfLines={2}>
+                {details.hotel}
               </Text>
             </View>
-          ) : null}
-          {details.baggageCount ? (
-            <View style={[styles.badge, { backgroundColor: colors.muted }]}>
-              <Feather
-                name="shopping-bag"
-                size={13}
-                color={colors.mutedForeground}
-              />
-              <Text style={[styles.badgeText, { color: colors.mutedForeground }]}>
-                {details.baggageCount}{" "}
-                {details.baggageCount === 1 ? "bag" : "bags"}
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.section}>
+            <View style={styles.sectionIcon}>
+              <Feather name="users" size={18} color="#0F766E" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionLabel}>Family</Text>
+              <Text style={styles.sectionValue}>{familyName}</Text>
+              <Text style={styles.peopleText}>
+                {getPeopleLabel(details)}
+                {details.baggageCount
+                  ? ` - ${details.baggageCount} ${
+                      details.baggageCount === 1 ? "bag" : "bags"
+                    }`
+                  : ""}
               </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <View style={styles.footerActions}>
+            <View style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Join this ride</Text>
+            </View>
+            <Text style={styles.secondaryLink}>See other matches</Text>
+            <Text style={styles.shortLink} numberOfLines={1}>
+              {shareUrl.replace(/^https?:\/\//, "")}
+            </Text>
+          </View>
+          {showQr ? (
+            <View style={styles.qrBox}>
+              <QRCode value={shareUrl} size={78} backgroundColor="#fff" color="#111827" />
             </View>
           ) : null}
         </View>
-      )}
 
-      {showQr ? (
-        <View style={[styles.qrSection, { borderTopColor: colors.separator }]}>
-          <View style={styles.qrBox}>
-            <QRCode value={shareUrl} size={144} backgroundColor="#fff" color="#111827" />
+        {!details.active ? (
+          <View style={styles.inactiveOverlay}>
+            <Text style={styles.inactiveText}>This trip is no longer active</Text>
           </View>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.qrTitle, { color: colors.foreground }]}>
-              Scan or tap the link
-            </Text>
-            <Text
-              style={[styles.linkText, { color: colors.mutedForeground }]}
-              numberOfLines={3}
-            >
-              {shareUrl}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Feather>["name"];
-  label: string;
-  value: string;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.infoRow}>
-      <View style={[styles.infoIcon, { backgroundColor: colors.accentSurface }]}>
-        <Feather name={icon} size={15} color={colors.accent} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>
-          {label}
-        </Text>
-        <Text style={[styles.infoValue, { color: colors.foreground }]}>
-          {value}
-        </Text>
+        ) : null}
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
+  captureWrap: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 390,
+    backgroundColor: "#F8FAFC",
+    padding: 10,
+  },
   card: {
-    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 26,
     overflow: "hidden",
     boxShadow: "0px 6px 22px rgba(15,23,42,0.12)",
     elevation: 5,
   },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  logoMark: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoText: {
-    color: "#fff",
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-  },
-  brandTitle: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.2,
-  },
-  brandSub: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  hero: {
-    paddingHorizontal: 18,
+  banner: {
+    backgroundColor: "#0F766E",
+    paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 8,
-    gap: 4,
-  },
-  name: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.7,
-  },
-  team: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  tripLine: {
-    fontSize: 17,
-    fontFamily: "Inter_500Medium",
-    marginTop: 6,
-  },
-  detailGrid: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  infoIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  infoLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  infoValue: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    marginTop: 1,
-  },
-  badgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingHorizontal: 18,
     paddingBottom: 16,
   },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 100,
+  bannerEyebrow: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
-  badgeText: {
-    fontSize: 12,
+  tournamentName: {
+    color: "#fff",
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.5,
+    marginTop: 7,
+  },
+  tournamentDate: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+    marginTop: 2,
   },
-  qrSection: {
+  body: {
+    padding: 18,
+    gap: 12,
+  },
+  section: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  sectionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "#CCFBF1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  airportRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 3,
+  },
+  airportCode: {
+    color: "#0F172A",
+    fontSize: 42,
+    lineHeight: 46,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -1.5,
+  },
+  timePill: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "flex-end",
+  },
+  timePillLabel: {
+    color: "#64748B",
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  timePillValue: {
+    color: "#0F172A",
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    marginTop: 1,
+  },
+  sectionValue: {
+    color: "#0F172A",
+    fontSize: 18,
+    lineHeight: 23,
+    fontFamily: "Inter_700Bold",
+    marginTop: 3,
+  },
+  peopleText: {
+    color: "#475569",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E2E8F0",
+    marginLeft: 50,
+  },
+  footer: {
+    backgroundColor: "#F8FAFC",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     padding: 16,
     borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
   },
-  qrBox: {
-    backgroundColor: "#fff",
-    padding: 8,
-    borderRadius: 16,
+  footerActions: {
+    flex: 1,
+    gap: 7,
   },
-  qrTitle: {
+  primaryButton: {
+    backgroundColor: "#0F766E",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  primaryButtonText: {
+    color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_700Bold",
   },
-  linkText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 17,
+  secondaryLink: {
+    color: "#0F766E",
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  shortLink: {
+    color: "#64748B",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+  qrBox: {
+    backgroundColor: "#fff",
+    padding: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  inactiveOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15,23,42,0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  inactiveText: {
+    color: "#fff",
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
   },
 });

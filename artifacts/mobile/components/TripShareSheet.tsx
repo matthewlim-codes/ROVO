@@ -1,4 +1,6 @@
 import { Feather } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import * as Sharing from "expo-sharing";
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { captureRef } from "react-native-view-shot";
 
 import { TripShareCard } from "@/components/TripShareCard";
 import type { Tournament, Trip } from "@/context/TripContext";
@@ -19,7 +22,8 @@ import { useColors } from "@/hooks/useColors";
 import {
   buildTripShareDetails,
   buildTripShareMessage,
-  buildTripShareUrl,
+  buildTripShortUrl,
+  createTripShare,
 } from "@/utils/tripShare";
 
 interface TripShareSheetProps {
@@ -38,33 +42,95 @@ export function TripShareSheet({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [sharing, setSharing] = React.useState(false);
+  const [shareId, setShareId] = React.useState<string | null>(null);
+  const [shareError, setShareError] = React.useState("");
+  const [copied, setCopied] = React.useState(false);
+  const cardRef = React.useRef<View>(null);
 
   const sharePayload = useMemo(() => {
-    if (!trip) return null;
-    const details = buildTripShareDetails(trip, tournament);
-    const shareUrl = buildTripShareUrl(details);
+    if (!trip || !shareId) return null;
+    const details = buildTripShareDetails(trip, tournament, shareId);
+    const shareUrl = buildTripShortUrl(shareId);
     return {
       details,
       shareUrl,
       message: buildTripShareMessage(details, shareUrl),
     };
-  }, [trip, tournament]);
+  }, [shareId, trip, tournament]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!visible || !trip) return;
+
+    setShareError("");
+    setCopied(false);
+    setShareId(null);
+
+    createTripShare(trip.id)
+      .then((share) => {
+        if (!cancelled) setShareId(share.id);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShareError("Could not create a share link. Try again in a moment.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id, visible]);
 
   const handleShare = async () => {
     if (!sharePayload) return;
     setSharing(true);
     try {
-      await Share.share({
-        title: "Rovo trip card",
-        message: sharePayload.message,
-        url: sharePayload.shareUrl,
-      });
+      if (Platform.OS !== "web" && cardRef.current) {
+        try {
+          const imageUri = await captureRef(cardRef.current, {
+            format: "png",
+            quality: 1,
+          });
+          await Share.share({
+            title: "Rovo Travel Info Card",
+            message: sharePayload.message,
+            url: imageUri,
+          });
+          onClose();
+          return;
+        } catch {
+          const canShareFile = await Sharing.isAvailableAsync().catch(() => false);
+          if (canShareFile && cardRef.current) {
+            const imageUri = await captureRef(cardRef.current, {
+              format: "png",
+              quality: 1,
+            });
+            await Sharing.shareAsync(imageUri, {
+              dialogTitle: "Share Rovo trip card",
+              mimeType: "image/png",
+              UTI: "public.png",
+            });
+            await Clipboard.setStringAsync(sharePayload.shareUrl);
+            setCopied(true);
+            onClose();
+            return;
+          }
+        }
+      }
+
+      await Share.share({ title: "Rovo Travel Info Card", message: sharePayload.message });
       onClose();
     } catch {
       // The native share sheet throws when dismissed on some platforms.
     } finally {
       setSharing(false);
     }
+  };
+
+  const handleCopy = async () => {
+    if (!sharePayload) return;
+    await Clipboard.setStringAsync(sharePayload.shareUrl);
+    setCopied(true);
   };
 
   return (
@@ -108,15 +174,57 @@ export function TripShareSheet({
         >
           {sharePayload ? (
             <TripShareCard
+              ref={cardRef}
               details={sharePayload.details}
               shareUrl={sharePayload.shareUrl}
             />
           ) : (
             <View style={styles.loadingCard}>
-              <ActivityIndicator color={colors.primary} />
+              {shareError ? (
+                <>
+                  <Feather name="alert-circle" size={24} color={colors.destructive} />
+                  <Text style={[styles.errorText, { color: colors.destructive }]}>
+                    {shareError}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator color={colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+                    Creating secure short link...
+                  </Text>
+                </>
+              )}
             </View>
           )}
         </ScrollView>
+
+        <Pressable
+          onPress={handleCopy}
+          disabled={!sharePayload}
+          style={({ pressed }) => [
+            styles.copyBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.separator,
+              opacity: pressed || !sharePayload ? 0.75 : 1,
+            },
+          ]}
+        >
+          <Feather
+            name={copied ? "check" : "link"}
+            size={16}
+            color={copied ? colors.accent : colors.foreground}
+          />
+          <Text
+            style={[
+              styles.copyBtnText,
+              { color: copied ? colors.accent : colors.foreground },
+            ]}
+          >
+            {copied ? "Link copied" : "Copy short link"}
+          </Text>
+        </Pressable>
 
         <Pressable
           onPress={handleShare}
@@ -140,7 +248,7 @@ export function TripShareSheet({
                   { color: colors.primaryForeground },
                 ]}
               >
-                Share card
+                Share image card
               </Text>
             </>
           )}
@@ -201,6 +309,33 @@ const styles = StyleSheet.create({
     minHeight: 240,
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  copyBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
   },
   shareBtn: {
     flexDirection: "row",
