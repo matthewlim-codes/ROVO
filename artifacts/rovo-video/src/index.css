@@ -1,13 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0A0A0A;
+  --color-primary: #22C55E;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
 
 @layer base {
-  :root {
-    --background: 0 0% 4%;
-    --primary: 142 71% 45%;
-  }
-
   body {
     @apply bg-background text-white font-body overflow-hidden;
   }
