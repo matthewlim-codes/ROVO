@@ -259,6 +259,25 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
+          <View style={styles.bypassRow}>
+            <View style={[styles.bypassDivider, { backgroundColor: colors.border }]} />
+            <Pressable
+              onPress={() => router.replace("/tournaments" as Href)}
+              style={({ pressed }) => [
+                styles.bypassBtn,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: pressed ? colors.muted : "transparent",
+                },
+              ]}
+            >
+              <Feather name="eye" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.bypassText, { color: colors.mutedForeground }]}>
+                Bypass login (preview only)
+              </Text>
+            </Pressable>
+          </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -303,4 +322,12 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: "row", justifyContent: "center", gap: 6 },
   switchText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   switchLink: { fontSize: 14, fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" },
+  bypassRow: { alignItems: "center", gap: 12 },
+  bypassDivider: { width: "100%", height: 1 },
+  bypassBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 8, paddingHorizontal: 16,
+    borderRadius: 8, borderWidth: 1,
+  },
+  bypassText: { fontSize: 13, fontFamily: "Inter_400Regular" },
 });
