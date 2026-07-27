@@ -6,7 +6,11 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed-tournament-images": "tsx ./src/seed-tournament-images.ts",
+    "seed-aug-sep-tournaments": "tsx ./src/seed-aug-sep-tournaments.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
