@@ -16,14 +16,25 @@ export function setAuthTokenGetter(getter: (() => Promise<string | null>) | null
   tokenGetter = getter;
 }
 
-export function getAdminUrl(): string {
+/** Admin SPA URL. Optional tab deep-link: published|scheduled|pending|archived|sources|jobs|clubs|codes|metrics|feedback */
+export function getAdminUrl(tab?: string): string {
   const explicit = process.env.EXPO_PUBLIC_ADMIN_URL;
-  if (explicit) return explicit;
-  if (domain) return `https://${domain}/api/admin`;
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/api/admin`;
+  let base: string;
+  if (explicit) {
+    base = explicit.replace(/#.*$/, "");
+  } else if (domain) {
+    base = `https://${domain}/api/admin`;
+  } else if (typeof window !== "undefined" && window.location?.origin) {
+    base = `${window.location.origin}/api/admin`;
+  } else {
+    base = "/api/admin";
   }
-  return "/api/admin";
+  if (tab && /^[a-z_]+$/i.test(tab)) {
+    return `${base}#${tab}`;
+  }
+  // Preserve hash from EXPO_PUBLIC_ADMIN_URL when no tab override is passed
+  if (explicit && explicit.includes("#") && !tab) return explicit;
+  return base;
 }
 
 export class ApiError extends Error {

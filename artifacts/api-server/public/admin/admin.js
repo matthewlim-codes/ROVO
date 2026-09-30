@@ -50,13 +50,20 @@ async function api(method, path, body) {
   return data;
 }
 
-function switchTab(tab) {
+function switchTab(tab, opts) {
+  if (!TAB_ORDER.includes(tab)) tab = "published";
   document.querySelectorAll(".tab").forEach((el, i) => {
     el.classList.toggle("active", TAB_ORDER[i] === tab);
   });
   document.querySelectorAll(".section").forEach((el) => el.classList.remove("active"));
   const section = document.getElementById("tab-" + tab);
   if (section) section.classList.add("active");
+  if (!opts || opts.updateHash !== false) {
+    const next = "#" + tab;
+    if (location.hash !== next) {
+      history.replaceState(null, "", next);
+    }
+  }
   if (tab === "published") loadTournaments("published");
   if (tab === "scheduled") loadTournaments("approved");
   if (tab === "pending") loadTournaments("pending_review");
@@ -67,6 +74,11 @@ function switchTab(tab) {
   if (tab === "feedback") loadFeedback();
   if (tab === "clubs") renderClubs();
   if (tab === "codes") renderCodes();
+}
+
+function tabFromHash() {
+  const raw = (location.hash || "").replace(/^#/, "").trim();
+  return TAB_ORDER.includes(raw) ? raw : null;
 }
 
 function statusBadge(status) {
@@ -82,12 +94,18 @@ async function loadAll() {
     ]);
     renderClubs();
     renderCodes();
-    await loadTournaments("published");
     await refreshSetupBanner();
+    const initial = tabFromHash() || "published";
+    switchTab(initial, { updateHash: true });
   } catch (e) {
     toast(e.message, true);
   }
 }
+
+window.addEventListener("hashchange", () => {
+  const tab = tabFromHash();
+  if (tab) switchTab(tab, { updateHash: false });
+});
 
 async function refreshSetupBanner() {
   try {
