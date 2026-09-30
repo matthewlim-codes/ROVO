@@ -348,6 +348,15 @@ async function loadSourcesTab() {
           .join("")
       : `<tr><td colspan="4" class="empty">No discovery sources configured.</td></tr>`;
     document.getElementById("policy-json").textContent = JSON.stringify(policy, null, 2);
+    document.getElementById("policy-min-clubs").value = String(
+      policy.minCaliforniaClubs ?? 1,
+    );
+    document.getElementById("policy-enabled").value = policy.enabled === false ? "false" : "true";
+    document.getElementById("policy-require-reg").checked = !!policy.requireRegistrationConfirmed;
+    const accepted = new Set(policy.acceptedEvidenceTypes || []);
+    document.querySelectorAll('input[name="policy-ev"]').forEach((el) => {
+      el.checked = accepted.has(el.value);
+    });
     document.getElementById("adapters-list").innerHTML = adapters
       .map(
         (a) =>
@@ -357,6 +366,31 @@ async function loadSourcesTab() {
   } catch (e) {
     toast(e.message, true);
   }
+}
+
+async function savePolicy(ev) {
+  ev.preventDefault();
+  const accepted = [...document.querySelectorAll('input[name="policy-ev"]:checked')].map(
+    (el) => el.value,
+  );
+  if (!accepted.length) {
+    toast("Select at least one evidence type", true);
+    return false;
+  }
+  try {
+    const payload = {
+      minCaliforniaClubs: Number(document.getElementById("policy-min-clubs").value),
+      acceptedEvidenceTypes: accepted,
+      requireRegistrationConfirmed: document.getElementById("policy-require-reg").checked,
+      enabled: document.getElementById("policy-enabled").value === "true",
+    };
+    const saved = await api("PUT", "/discovery/policy", payload);
+    document.getElementById("policy-json").textContent = JSON.stringify(saved, null, 2);
+    toast("Policy saved");
+  } catch (e) {
+    toast(e.message, true);
+  }
+  return false;
 }
 
 async function addCaClub() {
@@ -372,18 +406,39 @@ async function addCaClub() {
 }
 
 async function addSource() {
-  const name = prompt("Source name");
+  const name = prompt("Source name", "NCVA official calendar");
   if (!name) return;
-  const adapterKey = prompt('Adapter key (e.g. "manual_json")', "manual_json");
+  const adapterKey = prompt(
+    'Adapter key: ncva_calendar | manual_json',
+    "ncva_calendar",
+  );
   if (!adapterKey) return;
-  const url = prompt("HTTPS JSON feed URL (optional — leave blank for inline later)") || "";
   try {
+    let kind = "structured_calendar";
+    let config = {
+      baseUrl: "https://ncva.com",
+      calendarPageSlug: "events",
+      genders: ["boys"],
+      includePast: false,
+    };
+    if (adapterKey === "manual_json") {
+      kind = "manual_json";
+      const url =
+        prompt("HTTPS JSON feed URL (optional — leave blank for empty inline list)") ||
+        "";
+      config = url ? { url } : { events: [] };
+    } else if (adapterKey === "ncva_calendar") {
+      kind = "structured_calendar";
+    } else {
+      kind = "official_feed";
+      config = {};
+    }
     await api("POST", "/discovery-sources", {
       name,
-      kind: "manual_json",
+      kind,
       adapterKey,
       enabled: true,
-      config: url ? { url } : { events: [] },
+      config,
     });
     toast("Source added");
     loadSourcesTab();
@@ -548,6 +603,7 @@ window.closeModal = closeModal;
 window.addCaClub = addCaClub;
 window.addSource = addSource;
 window.runJob = runJob;
+window.savePolicy = savePolicy;
 window.openClub = openClub;
 window.saveClub = saveClub;
 

@@ -35,7 +35,7 @@ export const discoverySourcesTable = pgTable("discovery_sources", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   kind: text("kind", { enum: discoverySourceKindEnum }).notNull(),
-  /** Adapter key: manual_json | static_fixture | (proposed: aes_feed, jva_calendar, …) */
+  /** Adapter key: ncva_calendar | manual_json | static_fixture (test-only) | proposed stubs */
   adapterKey: text("adapter_key").notNull(),
   config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
   enabled: boolean("enabled").notNull().default(true),

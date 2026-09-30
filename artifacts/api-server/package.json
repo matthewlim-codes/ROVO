@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test 'src/**/*.test.ts' 'src/**/*.test.mts'",
+    "test": "ALLOW_TEST_ADAPTERS=true tsx --test 'src/**/*.test.ts' 'src/**/*.test.mts'",
+    "configure-ncva-discovery": "tsx src/scripts/configureNcvaDiscovery.ts",
     "verify-pilot-dev": "tsx src/lib/verify-pilot-dev.ts",
     "jobs": "tsx src/jobsCli.ts"
   },

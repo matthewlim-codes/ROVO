@@ -22,6 +22,9 @@ const hasIsolatedDb =
   /rovo_pilot_dev|127\.0\.0\.1|localhost/.test(process.env.DATABASE_URL) &&
   !/rovousa|neon\.tech/i.test(process.env.DATABASE_URL);
 
+// static_fixture is gated out of production; enable only for these tests.
+process.env.ALLOW_TEST_ADAPTERS = "true";
+
 describe("discovery + lifecycle integration (isolated DB)", { skip: !hasIsolatedDb }, () => {
   before(async () => {
     // Clean discovery tables for deterministic tests — not production.

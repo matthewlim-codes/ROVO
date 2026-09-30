@@ -87,10 +87,46 @@ const ADMIN_HTML = `<!DOCTYPE html>
     <div class="card">
       <div class="card-header"><h2>Auto-approve policy</h2></div>
       <div style="padding:16px">
-        <pre id="policy-json" class="json"></pre>
-        <p class="muted" style="margin-top:10px">Edit via PUT /api/discovery/policy. Ambiguous events stay in pending review.</p>
+        <form id="policy-form" onsubmit="return savePolicy(event)">
+          <div class="form-row cols-2">
+            <div>
+              <label>Minimum distinct CA clubs with evidence</label>
+              <input id="policy-min-clubs" type="number" min="1" max="50" required />
+            </div>
+            <div>
+              <label>Policy enabled</label>
+              <select id="policy-enabled">
+                <option value="true">Enabled</option>
+                <option value="false">Disabled (all pending review)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Accepted evidence types</label>
+              <label class="check"><input type="checkbox" name="policy-ev" value="planned_schedule" /> planned_schedule (club schedule)</label>
+              <label class="check"><input type="checkbox" name="policy-ev" value="registration_confirmed" /> registration_confirmed</label>
+              <label class="check"><input type="checkbox" name="policy-ev" value="organizer_team_list" /> organizer_team_list</label>
+              <label class="check"><input type="checkbox" name="policy-ev" value="admin_verified" /> admin_verified</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="check">
+              <input type="checkbox" id="policy-require-reg" />
+              Require at least one registration_confirmed evidence
+            </label>
+          </div>
+          <div class="form-footer" style="padding:0;margin-top:12px">
+            <button type="submit" class="btn btn-primary btn-sm">Save policy</button>
+          </div>
+        </form>
+        <p class="muted" style="margin-top:12px">Ambiguous events and events without sufficient CA attendance evidence stay in pending review. Proximity alone never counts.</p>
         <h3 style="margin:16px 0 8px;font-size:14px">Adapters</h3>
         <ul id="adapters-list" class="muted" style="padding-left:18px;line-height:1.6"></ul>
+        <details style="margin-top:12px">
+          <summary class="muted">Raw policy JSON</summary>
+          <pre id="policy-json" class="json"></pre>
+        </details>
       </div>
     </div>
   </div>

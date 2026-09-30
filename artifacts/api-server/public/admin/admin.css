@@ -47,6 +47,8 @@ tr:hover td { background: var(--bg); }
 .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
 .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--primary); margin: 6px 0; }
+label.check input { width: auto; }
 input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); outline: none; font-family: inherit; }
 .form-footer { display: flex; gap: 8px; margin-top: 16px; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
