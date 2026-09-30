@@ -15,6 +15,9 @@ import messagesRouter from "./messages";
 import metricsRouter from "./metrics";
 import surveysRouter from "./surveys";
 import tripSharesRouter from "./tripShares";
+import jobsRouter from "./jobs";
+import discoveryAdminRouter from "./discoveryAdmin";
+import cityImagesRouter from "./cityImages";
 
 const router: IRouter = Router();
 
@@ -33,6 +36,9 @@ router.use(messagesRouter);
 router.use(metricsRouter);
 router.use(surveysRouter);
 router.use(tripSharesRouter);
+router.use(jobsRouter);
+router.use(discoveryAdminRouter);
+router.use(cityImagesRouter);
 router.use(adminRouter);
 
 export default router;

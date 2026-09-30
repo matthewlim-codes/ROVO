@@ -8,8 +8,9 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/**/*.test.ts",
-    "verify-pilot-dev": "tsx src/lib/verify-pilot-dev.ts"
+    "test": "tsx --test 'src/**/*.test.ts' 'src/**/*.test.mts'",
+    "verify-pilot-dev": "tsx src/lib/verify-pilot-dev.ts",
+    "jobs": "tsx src/jobsCli.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.5",
