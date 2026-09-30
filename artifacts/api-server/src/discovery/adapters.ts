@@ -72,7 +72,7 @@ export const manualJsonAdapter: DiscoveryAdapter = {
 
 /**
  * Official NCVA calendar via WordPress REST (structured calendar, not a scrapey free-for-all).
- * Config: { genders?: ["boys"], calendarPageSlug?: "events", includePast?: false }
+ * Config: { genders?: ["boys","girls","coed"], calendarPageSlug?: "events", includePast?: false }
  * Page: https://ncva.com/events/
  */
 export const ncvaCalendarAdapter: DiscoveryAdapter = {

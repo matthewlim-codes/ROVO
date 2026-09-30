@@ -335,15 +335,21 @@ export async function fetchNcvaCalendarEvents(
         ? config.calendarPageSlug.trim()
         : "events";
 
+    // Default: ingest boys + girls (+ coed). Earlier boys-only default hid
+    // most of the official NCVA calendar (Jan+ events are largely girls).
     const gendersRaw = Array.isArray(config.genders)
       ? (config.genders as unknown[]).map(String)
-      : ["boys"];
+      : ["boys", "girls", "coed"];
     const genders = new Set(
       gendersRaw.filter((g): g is GenderFilter =>
         g === "boys" || g === "girls" || g === "coed",
       ),
     );
-    if (!genders.size) genders.add("boys");
+    if (!genders.size) {
+      genders.add("boys");
+      genders.add("girls");
+      genders.add("coed");
+    }
 
     const includePast = config.includePast === true;
     const now = new Date();
@@ -360,8 +366,17 @@ export async function fetchNcvaCalendarEvents(
     const tables = parseTables(page.content);
     const events: DiscoveredEvent[] = [];
     const seen = new Set<string>();
+    const seenDedupe = new Set<string>();
 
-    for (const table of tables) {
+    // Prefer the primary "Divisions | Tournament | Date | …" table; season
+    // archive tables often repeat the same qualifiers with different titles.
+    const rankedTables = [...tables].sort((a, b) => {
+      const aDiv = a[0] && headerIndex(a[0], "division") >= 0 ? 0 : 1;
+      const bDiv = b[0] && headerIndex(b[0], "division") >= 0 ? 0 : 1;
+      return aDiv - bDiv;
+    });
+
+    for (const table of rankedTables) {
       if (!table.length) continue;
       const header = table[0];
       if (!rowLooksLikeHeader(header)) continue;
@@ -379,8 +394,8 @@ export async function fetchNcvaCalendarEvents(
         if (!name) continue;
 
         const divisions = iDiv >= 0 ? stripTags(row[iDiv] ?? "") : "";
-        const gender = inferGender(divisions, name);
-        if (!gender || !genders.has(gender)) continue;
+        const gender = inferGender(divisions, name) ?? "coed";
+        if (!genders.has(gender)) continue;
 
         const dateRaw = stripTags(row[iDate] ?? "");
         const ranges = parseNcvaDateRanges(dateRaw);
@@ -445,7 +460,15 @@ export async function fetchNcvaCalendarEvents(
           if (!parsed.success) continue;
           const key = `${parsed.data.organizerEventId}|${parsed.data.startDate}`;
           if (seen.has(key)) continue;
+          const dedupe = `${parsed.data.name
+            .toLowerCase()
+            .replace(/\b20\d{2}\b/g, " ")
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim()
+            .replace(/\s+/g, " ")}|${parsed.data.startDate}|${parsed.data.weekendIndex ?? 0}`;
+          if (seenDedupe.has(dedupe)) continue;
           seen.add(key);
+          seenDedupe.add(dedupe);
           events.push(parsed.data);
         }
       }

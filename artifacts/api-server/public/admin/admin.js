@@ -430,7 +430,7 @@ async function addSource() {
       config = {
         baseUrl: "https://ncva.com",
         calendarPageSlug: "events",
-        genders: ["boys"],
+        genders: ["boys", "girls", "coed"],
         includePast: false,
       };
     } else if (adapterKey === "scva_tournaments") {

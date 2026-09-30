@@ -118,7 +118,7 @@ async function upsertNcvaSource() {
     config: {
       baseUrl: "https://ncva.com",
       calendarPageSlug: "events",
-      genders: ["boys"],
+      genders: ["boys", "girls", "coed"],
       includePast: false,
     },
   });

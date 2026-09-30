@@ -142,7 +142,7 @@ router.post("/discovery-sources/ensure-defaults", requireAdminAuth, async (_req,
       config: {
         baseUrl: "https://ncva.com",
         calendarPageSlug: "events",
-        genders: ["boys"],
+        genders: ["boys", "girls", "coed"],
         includePast: false,
       },
     },
