@@ -296,7 +296,9 @@ export default function EditProfileScreen() {
         {user?.isAdmin ? (
         <Pressable
           onPress={async () => {
-            const url = getAdminUrl();
+            // Deep-link to Pending review so tournament discovery can be inspected
+            // from Profile → Manage club codes. Other tabs remain available in admin.
+            const url = getAdminUrl("pending");
             try {
               await Linking.openURL(url);
             } catch {
@@ -334,7 +336,7 @@ export default function EditProfileScreen() {
                 { color: colors.mutedForeground },
               ]}
             >
-              Opens the admin page in your browser
+              Opens admin (Pending review) for tournaments and club codes
             </Text>
           </View>
           <Feather
