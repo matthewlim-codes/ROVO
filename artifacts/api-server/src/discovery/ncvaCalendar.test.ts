@@ -73,4 +73,20 @@ describe("ncva_calendar live fetch", () => {
     assert.equal(fw!.state, "CA");
     assert.equal(fw!.attendanceEvidence.length, 0);
   });
+
+  it("defaults to boys+girls and includes January Golden State Challenge", async () => {
+    const result = await fetchNcvaCalendarEvents({ includePast: false });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(result.events.length >= 8, `expected full calendar, got ${result.events.length}`);
+    const gsc = result.events.find((e) => /golden state challenge/i.test(e.name));
+    assert.ok(gsc, "expected Golden State Challenge");
+    assert.equal(gsc!.startDate, "2027-01-16");
+    assert.equal(gsc!.gender, "girls");
+    // Season-table duplicate of Girls Far Western should not inflate count
+    const girlsFw = result.events.filter((e) =>
+      /girls'? far western/i.test(e.name),
+    );
+    assert.equal(girlsFw.length, 3, "three Far Western weekends, no season-table dupes");
+  });
 });

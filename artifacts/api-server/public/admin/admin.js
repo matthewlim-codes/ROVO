@@ -34,6 +34,28 @@ function toast(msg, err) {
   setTimeout(() => el.classList.remove("show"), 2800);
 }
 
+function formatApiError(data, fallback) {
+  const err = data?.error ?? data?.message ?? fallback;
+  if (Array.isArray(err)) {
+    return err
+      .map((issue) => {
+        if (!issue || typeof issue !== "object") return String(issue);
+        const path = Array.isArray(issue.path) ? issue.path.join(".") : "";
+        const msg = issue.message || JSON.stringify(issue);
+        return path ? `${path}: ${msg}` : msg;
+      })
+      .join("; ");
+  }
+  if (err && typeof err === "object") {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return fallback || "Request failed";
+    }
+  }
+  return err || fallback || "Request failed";
+}
+
 async function api(method, path, body) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body !== undefined) opts.body = JSON.stringify(body);
@@ -46,7 +68,7 @@ async function api(method, path, body) {
   } catch {
     data = { error: text };
   }
-  if (!res.ok) throw new Error(data?.error || data?.message || res.statusText);
+  if (!res.ok) throw new Error(formatApiError(data, res.statusText));
   return data;
 }
 
@@ -272,12 +294,16 @@ async function editTournament(id) {
     </div>
     <div class="form-row"><div><label>Location</label><input id="f-location" value="${esc(t.location)}"></div></div>
     <div class="form-row"><div><label>Event URL</label><input id="f-url" value="${esc(t.eventUrl || "")}"></div></div>
+    <div class="form-row"><div><label>Image URL</label>
+      <input id="f-image-url" placeholder="https://…" value="${esc(t.imageUrl || "")}">
+      <div class="muted" style="margin-top:6px">Direct image URL shown in the app. Optional city-library pick below can override it.</div>
+    </div></div>
     <div class="form-row"><div><label>Image alt / credit</label>
       <input id="f-alt" placeholder="Alt text" value="${esc(t.imageAltText || "")}">
       <input id="f-credit" style="margin-top:8px" placeholder="Credit / attribution" value="${esc(t.imageCredit || "")}">
     </div></div>
-    <div class="form-row"><div><label>City image</label>
-      <select id="f-city-image"><option value="">— none / placeholder —</option>
+    <div class="form-row"><div><label>City image library (optional)</label>
+      <select id="f-city-image"><option value="">— use Image URL above / none —</option>
         ${cityImages.map((c) => `<option value="${c.id}" ${t.cityImageId === c.id ? "selected" : ""}>${esc(c.city)}, ${esc(c.state)} (${esc(c.attribution || "no attr")})</option>`).join("")}
       </select>
     </div></div>
@@ -290,25 +316,28 @@ async function editTournament(id) {
 
 async function saveTournamentEdit() {
   try {
+    const cityImageId = v("f-city-image") || null;
+    const imageUrl = v("f-image-url") || null;
     const payload = {
       name: v("f-name"),
       startDate: v("f-start"),
       endDate: v("f-end"),
-      timezone: v("f-tz"),
+      timezone: v("f-tz") || "America/Los_Angeles",
       gender: v("f-gender"),
       city: v("f-city") || null,
       state: v("f-state") || null,
       location: v("f-location"),
       eventUrl: v("f-url") || null,
+      imageUrl: cityImageId ? undefined : imageUrl,
       imageAltText: v("f-alt") || null,
       imageCredit: v("f-credit") || null,
       dates: `${v("f-start")} → ${v("f-end")}`,
       hasDiscrepancy: false,
     };
     await api("PUT", `/tournaments/${editingId}`, payload);
-    const cityImageId = v("f-city-image") || null;
     await api("POST", `/tournaments/${editingId}/assign-city-image`, {
       cityImageId,
+      imageUrl: cityImageId ? undefined : imageUrl,
       imageAltText: payload.imageAltText,
       imageCredit: payload.imageCredit,
     });
@@ -430,7 +459,7 @@ async function addSource() {
       config = {
         baseUrl: "https://ncva.com",
         calendarPageSlug: "events",
-        genders: ["boys"],
+        genders: ["boys", "girls", "coed"],
         includePast: false,
       };
     } else if (adapterKey === "scva_tournaments") {

@@ -114,7 +114,7 @@ router.get("/tournaments/:id/evidence", requireAdminAuth, async (req, res) => {
 router.post("/tournaments", requireAdminAuth, async (req, res) => {
   const parsed = insertTournamentSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues });
+    return res.status(400).json({ error: zodErrorMessage(parsed.error.issues) });
   }
   try {
     const [tournament] = await db
@@ -137,12 +137,20 @@ router.post("/tournaments", requireAdminAuth, async (req, res) => {
   }
 });
 
+function zodErrorMessage(issues: { path: PropertyKey[]; message: string }[]) {
+  return issues
+    .map((i) =>
+      i.path.length ? `${i.path.map(String).join(".")}: ${i.message}` : i.message,
+    )
+    .join("; ");
+}
+
 router.put("/tournaments/:id", requireAdminAuth, async (req, res) => {
   const id = routeParam(req.params.id);
   if (!id) return res.status(400).json({ error: "id required" });
   const parsed = insertTournamentSchema.partial().safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues });
+    return res.status(400).json({ error: zodErrorMessage(parsed.error.issues) });
   }
   try {
     const [before] = await db
@@ -165,6 +173,7 @@ router.put("/tournaments/:id", requireAdminAuth, async (req, res) => {
           "state",
           "gender",
           "eventUrl",
+          "imageUrl",
           "organizer",
           "location",
           "dates",
