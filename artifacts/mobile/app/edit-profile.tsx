@@ -336,7 +336,7 @@ export default function EditProfileScreen() {
                 { color: colors.mutedForeground },
               ]}
             >
-              Opens admin (Pending review) for tournaments and club codes
+              Opens production admin — Pending, Published, Club Codes, and more
             </Text>
           </View>
           <Feather

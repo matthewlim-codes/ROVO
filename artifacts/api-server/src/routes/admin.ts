@@ -1,19 +1,73 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import { requireAdminAuth } from "../middlewares/adminAuth";
 
 const router = Router();
 
 /**
- * Admin SPA shell. Styles/scripts live in public/admin/ (maintainable files).
- * Served at GET /api/admin with Basic Auth.
+ * Resolve public/admin for CSS/JS. Prefer dist/public (copied at build) so a
+ * Replit deploy of dist/ alone still serves a working admin SPA.
  */
-const ADMIN_HTML = `<!DOCTYPE html>
+function resolveAdminAssetDir(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(process.cwd(), "public", "admin"),
+    path.join(here, "public", "admin"),
+    path.join(here, "..", "public", "admin"),
+  ];
+  for (const dir of candidates) {
+    if (
+      fs.existsSync(path.join(dir, "admin.js")) &&
+      fs.existsSync(path.join(dir, "admin.css"))
+    ) {
+      return dir;
+    }
+  }
+  return candidates[0]!;
+}
+
+function readAdminAssets(): { css: string; js: string } {
+  const dir = resolveAdminAssetDir();
+  return {
+    css: fs.readFileSync(path.join(dir, "admin.css"), "utf8"),
+    js: fs.readFileSync(path.join(dir, "admin.js"), "utf8"),
+  };
+}
+
+function buildAdminHtml(): string {
+  const { css, js } = readAdminAssets();
+  const tournamentTabs = ["published", "scheduled", "pending", "archived"]
+    .map(
+      (key, i) => `
+  <div id="tab-${key}" class="section${i === 0 ? " active" : ""}">
+    <div class="card">
+      <div class="card-header">
+        <h2>${key === "scheduled" ? "Approved / scheduled" : key.charAt(0).toUpperCase() + key.slice(1)} tournaments</h2>
+        <div class="toolbar">
+          <input id="search-${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}" placeholder="Search…" style="width:180px" onkeydown="if(event.key==='Enter')loadTournaments('${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}')">
+          <button class="btn btn-ghost btn-sm" onclick="loadTournaments('${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}')">Search</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Location</th><th>Dates</th><th>Status</th><th>Gender</th><th></th></tr></thead>
+        <tbody id="tbody-${key}"></tbody>
+      </table>
+    </div>
+  </div>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Rovo Admin</title>
-<link rel="stylesheet" href="/api/static/admin/admin.css" />
+<style>
+${css}
+</style>
 </head>
 <body>
 <header>
@@ -37,27 +91,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 
 <div class="container">
   <div id="setup-banner" class="setup-banner" style="display:none"></div>
-
-  ${["published", "scheduled", "pending", "archived"]
-    .map(
-      (key, i) => `
-  <div id="tab-${key}" class="section${i === 0 ? " active" : ""}">
-    <div class="card">
-      <div class="card-header">
-        <h2>${key === "scheduled" ? "Approved / scheduled" : key.charAt(0).toUpperCase() + key.slice(1)} tournaments</h2>
-        <div class="toolbar">
-          <input id="search-${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}" placeholder="Search…" style="width:180px" onkeydown="if(event.key==='Enter')loadTournaments('${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}')">
-          <button class="btn btn-ghost btn-sm" onclick="loadTournaments('${key === "scheduled" ? "approved" : key === "pending" ? "pending_review" : key}')">Search</button>
-        </div>
-      </div>
-      <table>
-        <thead><tr><th>Name</th><th>Location</th><th>Dates</th><th>Status</th><th>Gender</th><th></th></tr></thead>
-        <tbody id="tbody-${key}"></tbody>
-      </table>
-    </div>
-  </div>`,
-    )
-    .join("")}
+  ${tournamentTabs}
 
   <div id="tab-sources" class="section">
     <div class="card">
@@ -186,13 +220,33 @@ const ADMIN_HTML = `<!DOCTYPE html>
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="/api/static/admin/admin.js"></script>
+<script>
+${js}
+</script>
 </body>
 </html>`;
+}
 
+/**
+ * Admin SPA at GET /api/admin (Basic Auth).
+ * CSS/JS are inlined so Profile → Manage club codes works even when
+ * /api/static/admin/* is missing from an older deploy layout.
+ */
 router.get("/admin", requireAdminAuth, (_req, res) => {
-  res.setHeader("Content-Type", "text/html");
-  res.send(ADMIN_HTML);
+  try {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buildAdminHtml());
+  } catch (err) {
+    res
+      .status(500)
+      .type("text/plain")
+      .send(
+        `Admin UI assets missing. Rebuild the API so dist/public/admin is present. (${
+          err instanceof Error ? err.message : "unknown error"
+        })`,
+      );
+  }
 });
 
 export default router;
