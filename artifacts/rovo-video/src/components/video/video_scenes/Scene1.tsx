@@ -9,14 +9,14 @@ export function Scene1() {
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.8 }}
     >
-      <motion.h1 
-        className="text-[8vw] font-display font-bold text-white tracking-tighter"
+      <motion.img
+        src="/rovo-logo.png"
+        alt="ROVO"
+        className="w-[28vw] h-[28vw] max-w-[420px] max-h-[420px] rounded-[2vw] object-cover"
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, type: 'spring', damping: 20 }}
-      >
-        ROVO
-      </motion.h1>
+      />
       <motion.div 
         className="absolute bottom-[20%] text-[2vw] text-[#22C55E]"
         initial={{ opacity: 0 }}

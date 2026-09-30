@@ -28,16 +28,24 @@ function resolveAdminAssetDir(): string {
   return candidates[0]!;
 }
 
-function readAdminAssets(): { css: string; js: string } {
+function readAdminAssets(): { css: string; js: string; logoDataUri: string } {
   const dir = resolveAdminAssetDir();
+  const markPath = path.join(dir, "rovo-mark.png");
+  const logoPath = fs.existsSync(markPath)
+    ? markPath
+    : path.join(dir, "rovo-logo.png");
+  const logoDataUri = fs.existsSync(logoPath)
+    ? `data:image/png;base64,${fs.readFileSync(logoPath).toString("base64")}`
+    : "";
   return {
     css: fs.readFileSync(path.join(dir, "admin.css"), "utf8"),
     js: fs.readFileSync(path.join(dir, "admin.js"), "utf8"),
+    logoDataUri,
   };
 }
 
 function buildAdminHtml(): string {
-  const { css, js } = readAdminAssets();
+  const { css, js, logoDataUri } = readAdminAssets();
   const tournamentTabs = ["published", "scheduled", "pending", "archived"]
     .map(
       (key, i) => `
@@ -71,7 +79,11 @@ ${css}
 </head>
 <body>
 <header>
-  <div class="logo">R</div>
+  ${
+    logoDataUri
+      ? `<img class="logo" src="${logoDataUri}" alt="Rovo" width="32" height="32" />`
+      : `<div class="logo" aria-hidden="true"></div>`
+  }
   <div><h1>Rovo Admin</h1></div>
   <span style="margin-left:auto">Tournaments · discovery · clubs</span>
 </header>

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { RovoLogo } from "@/components/RovoLogo";
 import { useColors } from "@/hooks/useColors";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -148,9 +149,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brand}>
-            <View style={styles.logoCard}>
-              <Text style={styles.logoWordmark}>rovo</Text>
-            </View>
+            <RovoLogo size={88} />
           </View>
 
           <View style={styles.heading}>
@@ -288,20 +287,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, gap: 32 },
   brand: { alignItems: "flex-start" },
-  logoCard: {
-    width: 88,
-    height: 88,
-    backgroundColor: "#000",
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoWordmark: {
-    fontFamily: "PlusJakartaSans_700Bold",
-    fontSize: 26,
-    color: "#fff",
-    letterSpacing: -0.6,
-  },
   heading: { gap: 6 },
   title: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.8, lineHeight: 38 },
   subtitle: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 22 },
