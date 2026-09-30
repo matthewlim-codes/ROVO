@@ -77,4 +77,7 @@ export type Tournament = typeof tournamentsTable.$inferSelect;
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
 export type TournamentGender = "boys" | "girls" | "coed";
 
-export const PUBLISH_LEAD_DAYS = 30;
+/** Public list publish window — keep in sync with api-server tournamentLifecycle. */
+export const PUBLISH_LEAD_MONTHS = 6;
+/** @deprecated Use PUBLISH_LEAD_MONTHS */
+export const PUBLISH_LEAD_DAYS = PUBLISH_LEAD_MONTHS * 30;
