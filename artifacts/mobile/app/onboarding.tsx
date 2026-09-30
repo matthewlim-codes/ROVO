@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { RovoLogo } from "@/components/RovoLogo";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -60,9 +61,7 @@ export default function OnboardingScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 12 }]}>
         <View style={styles.logoWrap}>
-          <View style={[styles.logoPill, { backgroundColor: colors.primary }]}>
-            <Text style={styles.logoText}>ROVO</Text>
-          </View>
+          <RovoLogo size={36} style={styles.logoMark} />
         </View>
         {currentIndex < SLIDES.length - 1 && (
           <Pressable onPress={completeOnboarding} hitSlop={16}>
@@ -148,17 +147,9 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   logoWrap: { flex: 1 },
-  logoPill: {
+  logoMark: {
     alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 100,
-  },
-  logoText: {
-    color: "#fff",
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 4,
+    borderRadius: 8,
   },
   skipText: {
     fontSize: 14,
