@@ -28,13 +28,13 @@ router.get("/discovery/setup-status", requireAdminAuth, async (_req, res) => {
     const sources = await db.select().from(discoverySourcesTable);
     const activeClubs = clubs.filter((c) => c.active);
     const enabledSources = sources.filter((s) => s.enabled);
-    const setupRequired = activeClubs.length === 0 || enabledSources.length === 0;
+    const setupRequired = enabledSources.length === 0;
     return res.json({
       setupRequired,
       californiaClubCount: activeClubs.length,
       enabledSourceCount: enabledSources.length,
       message: setupRequired
-        ? "Add California clubs and at least one enabled discovery source. Discovery will not guess attendance."
+        ? "Enable at least one discovery source (NCVA and/or SCVA)."
         : "Setup complete",
       adapters: listAdapters(),
     });
@@ -129,6 +129,82 @@ router.post("/discovery-sources", requireAdminAuth, async (req, res) => {
     return res.status(201).json(row);
   } catch {
     return res.status(500).json({ error: "Failed to create source" });
+  }
+});
+
+/** Idempotently enable the two production calendar sources (NCVA + SCVA). */
+router.post("/discovery-sources/ensure-defaults", requireAdminAuth, async (_req, res) => {
+  const defaults = [
+    {
+      name: "NCVA events",
+      kind: "structured_calendar" as const,
+      adapterKey: "ncva_calendar",
+      config: {
+        baseUrl: "https://ncva.com",
+        calendarPageSlug: "events",
+        genders: ["boys"],
+        includePast: false,
+      },
+    },
+    {
+      name: "SCVA tournaments",
+      kind: "structured_calendar" as const,
+      adapterKey: "scva_tournaments",
+      config: {
+        url: "https://www.scvavolleyball.org/tournaments",
+        includePast: false,
+      },
+    },
+  ];
+  try {
+    const existing = await db.select().from(discoverySourcesTable);
+    const upserted = [];
+    for (const def of defaults) {
+      const found = existing.find((s) => s.adapterKey === def.adapterKey);
+      if (found) {
+        const [row] = await db
+          .update(discoverySourcesTable)
+          .set({
+            name: def.name,
+            kind: def.kind,
+            config: def.config,
+            enabled: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(discoverySourcesTable.id, found.id))
+          .returning();
+        upserted.push(row);
+      } else {
+        const [row] = await db
+          .insert(discoverySourcesTable)
+          .values({ ...def, enabled: true })
+          .returning();
+        upserted.push(row);
+      }
+    }
+    // Disable test fixtures / unrelated stubs so production pulls only NCVA+SCVA
+    for (const s of existing) {
+      if (
+        s.adapterKey === "ncva_calendar" ||
+        s.adapterKey === "scva_tournaments"
+      ) {
+        continue;
+      }
+      if (s.enabled) {
+        await db
+          .update(discoverySourcesTable)
+          .set({ enabled: false, updatedAt: new Date() })
+          .where(eq(discoverySourcesTable.id, s.id));
+      }
+    }
+    await writeAudit({
+      action: "discovery_source.ensure_defaults",
+      entityType: "discovery_source",
+      after: { adapters: upserted.map((s) => s.adapterKey) },
+    });
+    return res.json({ sources: upserted });
+  } catch {
+    return res.status(500).json({ error: "Failed to ensure default sources" });
   }
 });
 

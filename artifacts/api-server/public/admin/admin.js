@@ -333,26 +333,13 @@ function closeModal() {
 
 async function loadSourcesTab() {
   await refreshSetupBanner();
-  const clubsBody = document.getElementById("tbody-ca-clubs");
   const sourcesBody = document.getElementById("tbody-sources");
   try {
-    const [ca, sources, policy, adapters] = await Promise.all([
-      api("GET", "/california-clubs"),
+    const [sources, policy, adapters] = await Promise.all([
       api("GET", "/discovery-sources"),
       api("GET", "/discovery/policy"),
       api("GET", "/discovery/adapters"),
     ]);
-    clubsBody.innerHTML = ca.length
-      ? ca
-          .map(
-            (c) => `<tr>
-          <td>${esc(c.name)}</td><td>${esc(c.city || "")}</td>
-          <td>${c.active ? "active" : "inactive"}</td>
-          <td><a href="${esc(c.websiteUrl || "#")}" target="_blank" rel="noopener">${c.websiteUrl ? "Site" : "—"}</a></td>
-        </tr>`,
-          )
-          .join("")
-      : `<tr><td colspan="4" class="empty">No California clubs configured.</td></tr>`;
     sourcesBody.innerHTML = sources.length
       ? sources
           .map(
@@ -364,7 +351,7 @@ async function loadSourcesTab() {
         </tr>`,
           )
           .join("")
-      : `<tr><td colspan="4" class="empty">No discovery sources configured.</td></tr>`;
+      : `<tr><td colspan="4" class="empty">No discovery sources yet — click “Ensure NCVA + SCVA”.</td></tr>`;
     document.getElementById("policy-json").textContent = JSON.stringify(policy, null, 2);
     document.getElementById("policy-min-clubs").value = String(
       policy.minCaliforniaClubs ?? 1,
@@ -381,6 +368,16 @@ async function loadSourcesTab() {
           `<li><strong>${esc(a.key)}</strong> — ${esc(a.label)} ${a.implemented ? "(implemented)" : "(proposed)"}</li>`,
       )
       .join("");
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function ensureDefaultSources() {
+  try {
+    const result = await api("POST", "/discovery-sources/ensure-defaults");
+    toast(`Sources ready: ${(result.sources || []).map((s) => s.adapterKey).join(", ")}`);
+    loadSourcesTab();
   } catch (e) {
     toast(e.message, true);
   }
@@ -411,34 +408,17 @@ async function savePolicy(ev) {
   return false;
 }
 
-async function addCaClub() {
-  const name = prompt("California club name");
-  if (!name) return;
-  try {
-    await api("POST", "/california-clubs", { name, active: true });
-    toast("Club added");
-    loadSourcesTab();
-  } catch (e) {
-    toast(e.message, true);
-  }
-}
-
 async function addSource() {
-  const name = prompt("Source name", "NCVA official calendar");
+  const name = prompt("Source name", "NCVA events");
   if (!name) return;
   const adapterKey = prompt(
-    'Adapter key: ncva_calendar | manual_json',
+    "Adapter key: ncva_calendar | scva_tournaments | manual_json",
     "ncva_calendar",
   );
   if (!adapterKey) return;
   try {
     let kind = "structured_calendar";
-    let config = {
-      baseUrl: "https://ncva.com",
-      calendarPageSlug: "events",
-      genders: ["boys"],
-      includePast: false,
-    };
+    let config = {};
     if (adapterKey === "manual_json") {
       kind = "manual_json";
       const url =
@@ -447,6 +427,18 @@ async function addSource() {
       config = url ? { url } : { events: [] };
     } else if (adapterKey === "ncva_calendar") {
       kind = "structured_calendar";
+      config = {
+        baseUrl: "https://ncva.com",
+        calendarPageSlug: "events",
+        genders: ["boys"],
+        includePast: false,
+      };
+    } else if (adapterKey === "scva_tournaments") {
+      kind = "structured_calendar";
+      config = {
+        url: "https://www.scvavolleyball.org/tournaments",
+        includePast: false,
+      };
     } else {
       kind = "official_feed";
       config = {};
@@ -618,7 +610,7 @@ window.toggleHide = toggleHide;
 window.editTournament = editTournament;
 window.saveTournamentEdit = saveTournamentEdit;
 window.closeModal = closeModal;
-window.addCaClub = addCaClub;
+window.ensureDefaultSources = ensureDefaultSources;
 window.addSource = addSource;
 window.runJob = runJob;
 window.savePolicy = savePolicy;

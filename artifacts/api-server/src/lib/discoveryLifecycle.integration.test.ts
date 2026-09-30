@@ -36,7 +36,7 @@ describe("discovery + lifecycle integration (isolated DB)", { skip: !hasIsolated
     await db.delete(tournamentsTable);
   });
 
-  it("shows setup-required when no clubs/sources configured", async () => {
+  it("shows setup-required when no sources configured", async () => {
     const summary = await runDiscoveryJob({ dryRun: true });
     assert.equal(summary.setupRequired, true);
     assert.ok(summary.setupMessage?.includes("Setup required"));

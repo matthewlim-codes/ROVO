@@ -81,7 +81,7 @@ ${css}
   <div class="tab" onclick="switchTab('scheduled')">Scheduled</div>
   <div class="tab" onclick="switchTab('pending')">Pending review</div>
   <div class="tab" onclick="switchTab('archived')">Archived</div>
-  <div class="tab" onclick="switchTab('sources')">Sources &amp; CA clubs</div>
+  <div class="tab" onclick="switchTab('sources')">Sources</div>
   <div class="tab" onclick="switchTab('jobs')">Job history</div>
   <div class="tab" onclick="switchTab('clubs')">Clubs</div>
   <div class="tab" onclick="switchTab('codes')">Club Codes</div>
@@ -96,23 +96,15 @@ ${css}
   <div id="tab-sources" class="section">
     <div class="card">
       <div class="card-header">
-        <h2>California clubs</h2>
-        <button class="btn btn-primary btn-sm" onclick="addCaClub()">+ Add CA club</button>
-      </div>
-      <table>
-        <thead><tr><th>Name</th><th>City</th><th>Status</th><th>Site</th></tr></thead>
-        <tbody id="tbody-ca-clubs"></tbody>
-      </table>
-    </div>
-    <div class="card">
-      <div class="card-header">
         <h2>Discovery sources</h2>
         <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="ensureDefaultSources()">Ensure NCVA + SCVA</button>
           <button class="btn btn-ghost btn-sm" onclick="runJob(true)">Preview changes</button>
           <button class="btn btn-primary btn-sm" onclick="runJob(false)">Run discovery</button>
           <button class="btn btn-ghost btn-sm" onclick="addSource()">+ Add source</button>
         </div>
       </div>
+      <p class="muted" style="padding:0 20px 12px">Tournaments are pulled from <a href="https://ncva.com/events/" target="_blank" rel="noopener">ncva.com/events</a> and <a href="https://www.scvavolleyball.org/tournaments" target="_blank" rel="noopener">scvavolleyball.org/tournaments</a>. Same event from both sources is kept once.</p>
       <table>
         <thead><tr><th>Source</th><th>Enabled</th><th>Health</th><th>Last success</th></tr></thead>
         <tbody id="tbody-sources"></tbody>
@@ -124,7 +116,7 @@ ${css}
         <form id="policy-form" onsubmit="return savePolicy(event)">
           <div class="form-row cols-2">
             <div>
-              <label>Minimum distinct CA clubs with evidence</label>
+              <label>Minimum distinct clubs with attendance evidence</label>
               <input id="policy-min-clubs" type="number" min="1" max="50" required />
             </div>
             <div>
@@ -154,7 +146,7 @@ ${css}
             <button type="submit" class="btn btn-primary btn-sm">Save policy</button>
           </div>
         </form>
-        <p class="muted" style="margin-top:12px">Ambiguous events and events without sufficient CA attendance evidence stay in pending review. Proximity alone never counts.</p>
+        <p class="muted" style="margin-top:12px">Without attendance evidence, discovered tournaments stay in Pending review. Proximity alone never counts.</p>
         <h3 style="margin:16px 0 8px;font-size:14px">Adapters</h3>
         <ul id="adapters-list" class="muted" style="padding-left:18px;line-height:1.6"></ul>
         <details style="margin-top:12px">

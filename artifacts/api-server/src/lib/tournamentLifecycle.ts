@@ -99,6 +99,14 @@ export function shouldArchivePublished(opts: {
   return compareCalendarDates(today, opts.endDate) > 0;
 }
 
+function normToken(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export function normalizeEventIdentity(parts: {
   name: string;
   startDate: string;
@@ -106,17 +114,31 @@ export function normalizeEventIdentity(parts: {
   state?: string | null;
   organizer?: string | null;
 }): string {
-  const norm = (s: string) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-      .replace(/\s+/g, " ");
   return [
-    norm(parts.organizer ?? ""),
-    norm(parts.name),
+    normToken(parts.organizer ?? ""),
+    normToken(parts.name),
     parts.startDate,
-    norm(parts.city ?? ""),
-    norm(parts.state ?? ""),
+    normToken(parts.city ?? ""),
+    normToken(parts.state ?? ""),
   ].join("|");
+}
+
+/**
+ * Cross-source dedupe key (ignores organizer) so the same event listed by
+ * NCVA and SCVA collapses to one tournament row.
+ */
+export function crossSourceDedupeKey(parts: {
+  name: string;
+  startDate: string;
+}): string {
+  let name = normToken(parts.name);
+  name = name
+    .replace(
+      /\b(junior national qualifier|national qualifier|jnq|usav sanctioned|aau sanctioned|annual)\b/g,
+      " ",
+    )
+    .replace(/\b(\d+)(st|nd|rd|th)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${name}|${parts.startDate}`;
 }

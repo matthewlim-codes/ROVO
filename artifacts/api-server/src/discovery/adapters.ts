@@ -5,6 +5,7 @@ import {
   type DiscoveredEvent,
 } from "./types";
 import { fetchNcvaCalendarEvents } from "./ncvaCalendar";
+import { fetchScvaTournaments } from "./scvaTournaments";
 
 /**
  * Implemented adapter: fetch a JSON array from a trusted HTTPS URL or use
@@ -72,12 +73,24 @@ export const manualJsonAdapter: DiscoveryAdapter = {
 /**
  * Official NCVA calendar via WordPress REST (structured calendar, not a scrapey free-for-all).
  * Config: { genders?: ["boys"], calendarPageSlug?: "events", includePast?: false }
+ * Page: https://ncva.com/events/
  */
 export const ncvaCalendarAdapter: DiscoveryAdapter = {
   key: "ncva_calendar",
-  label: "NCVA official calendar (WordPress REST)",
+  label: "NCVA events (ncva.com/events)",
   implemented: true,
   fetchEvents: fetchNcvaCalendarEvents,
+};
+
+/**
+ * SCVA tournaments listing (Wix HTML).
+ * Config: { url?: "https://www.scvavolleyball.org/tournaments", includePast?: false }
+ */
+export const scvaTournamentsAdapter: DiscoveryAdapter = {
+  key: "scva_tournaments",
+  label: "SCVA tournaments (scvavolleyball.org/tournaments)",
+  implemented: true,
+  fetchEvents: fetchScvaTournaments,
 };
 
 /**
@@ -150,6 +163,7 @@ export const proposedAdapters: DiscoveryAdapter[] = [
 
 const all = [
   ncvaCalendarAdapter,
+  scvaTournamentsAdapter,
   manualJsonAdapter,
   staticFixtureAdapter,
   ...proposedAdapters,
