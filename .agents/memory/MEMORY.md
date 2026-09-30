@@ -1,1 +1,2 @@
 - [Deployment build timeout](build-timeout.md) — Cloud Run ~2min budget; iOS+Android sequential bundles exceed it; fix is Promise.all parallel downloads.
+- [Production tournament schema](production-tournament-schema.md) — managed production database uses Publish for schema changes; old direct-push runbook conflicts with current guidance.
