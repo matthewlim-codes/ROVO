@@ -28,9 +28,9 @@ router.get("/tournaments", async (req, res) => {
       .from(tournamentsTable)
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(tournamentsTable.startDate);
-    res.json(tournaments);
+    return res.json(tournaments);
   } catch (e) {
-    res.status(500).json({ error: "Failed to fetch tournaments" });
+    return res.status(500).json({ error: "Failed to fetch tournaments" });
   }
 });
 
@@ -44,9 +44,9 @@ router.post("/tournaments", requireAdminAuth, async (req, res) => {
       .insert(tournamentsTable)
       .values(parsed.data)
       .returning();
-    res.status(201).json(tournament);
+    return res.status(201).json(tournament);
   } catch (e) {
-    res.status(500).json({ error: "Failed to create tournament" });
+    return res.status(500).json({ error: "Failed to create tournament" });
   }
 });
 
@@ -63,9 +63,9 @@ router.put("/tournaments/:id", requireAdminAuth, async (req, res) => {
       .returning();
     if (!tournament)
       return res.status(404).json({ error: "Tournament not found" });
-    res.json(tournament);
+    return res.json(tournament);
   } catch (e) {
-    res.status(500).json({ error: "Failed to update tournament" });
+    return res.status(500).json({ error: "Failed to update tournament" });
   }
 });
 
@@ -74,9 +74,9 @@ router.delete("/tournaments/:id", requireAdminAuth, async (req, res) => {
     await db
       .delete(tournamentsTable)
       .where(eq(tournamentsTable.id, req.params.id as string));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed to delete tournament" });
+    return res.status(500).json({ error: "Failed to delete tournament" });
   }
 });
 

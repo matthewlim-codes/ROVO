@@ -33,9 +33,9 @@ router.post("/push-tokens", requireAuth, async (req, res) => {
           updatedAt: new Date(),
         },
       });
-    res.status(201).json({ ok: true });
+    return res.status(201).json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed to save push token" });
+    return res.status(500).json({ error: "Failed to save push token" });
   }
 });
 

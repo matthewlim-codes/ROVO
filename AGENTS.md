@@ -223,20 +223,11 @@ Clerk proxy (`middlewares/clerkProxyMiddleware.ts`): enables auth on custom doma
 - Same `hotel` (case-insensitive name OR matching `hotelPlaceId`)
 - Datetime within time window
 
-**Time windows (inconsistency — see §12):**
+**Time window (pilot — unified):** ±**60** minutes inclusive for trip-to-trip matching, watches, `GET /trips/matches`, client grouping, and cancellation notifications.
 
-| Trigger | Window |
-|---------|--------|
-| `POST /trips` trip-to-trip matching | ±45 min |
-| `POST /trips` watch matching | ±45 min |
-| `GET /trips/matches` (rideshare screen) | ±60 min |
-| Client `groupTripsIntoMatches` (matches screen) | ±45 min |
+**Hotel matching:** compare valid Google Place IDs when both exist; otherwise compare normalized hotel names. Two missing/invalid Place IDs never count as a match by themselves.
 
-**On match:** insert `match_events` row(s), insert `notifications`, send Expo push, deactivate matched watches.
-
-**On trip delete:** notify previously matched users (`ride_cancelled` kind).
-
-**One trip per user per tournament:** creating a trip deletes any existing trip by that user for that tournament.
+**Mode coexistence:** a user may have one arrival and one departure trip per tournament. Creating a trip replaces only the same mode (atomic delete+insert).
 
 ### 6.5 Chat (`routes/messages.ts`)
 
@@ -422,28 +413,19 @@ Legacy names coexist — prefer **Rovo** in user-facing strings, but expect:
 
 Read this section before making changes to matching, auth, or API security.
 
-### 12.1 Dual matching systems (HIGH)
+### 12.1 Matching screens (MEDIUM)
 
-Two parallel implementations with different behavior:
+Server matching (`GET /trips/matches` via `rideshare-matches.tsx`) is the pilot path for both arrival and departure. Client `groupTripsIntoMatches` / `matches.tsx` remain available but use the same 60-minute + hotel rules. Prefer not adding a third matching path.
 
-| Aspect | Arrivals (`rideshare-matches.tsx`) | Departures (`matches.tsx`) |
-|--------|-------------------------------------|----------------------------|
-| Match source | Server `GET /trips/matches` | Client `TripContext.getMatches()` |
-| Time window | ±60 min | ±45 min |
-| Chat model | 1:1 DMs (`rs-{id}__{id}`) | Group chat (`{tournament}-{airport}-{hotel}-{mode}`) |
-| Screen used | `rideshare-matches` | `matches` |
+`DEMO_TRIPS` were removed from normal TripContext initialization.
 
-**Bug:** `tournaments.tsx` routes to `rideshare-matches` for both modes, bypassing the departure-specific `matches` screen.
+### 12.2 Trip listing auth (mitigated for pilot)
 
-**Agent guidance:** Any matching change should aim to unify these systems. Do not add a third matching path.
+`GET /api/trips` requires auth and verified club membership; results are scoped to the caller's club. Public trip cards remain on `/trip-shares/:id` with a limited field set.
 
-### 12.2 Unauthenticated trip listing (SECURITY)
+### 12.3 Demo data in production client (mitigated)
 
-`GET /api/trips` has no auth. Anyone can list all trips for a tournament including names, hotels, and times. Fix by adding `requireAuth` and/or scoping results.
-
-### 12.3 Demo data in production client
-
-`DEMO_TRIPS` array in `TripContext.tsx` is loaded into state on every app start. Can pollute client-side group matching. Should be gated behind dev flag or removed.
+`DEMO_TRIPS` are no longer loaded on app start. Legacy `demo*` ids are stripped when reading AsyncStorage.
 
 ### 12.4 Stale documentation
 

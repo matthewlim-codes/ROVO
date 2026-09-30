@@ -32,6 +32,18 @@ interface HotelsResponse {
   results: HotelResult[];
   hasApiKey: boolean;
   upstreamError?: string;
+  usedFallback?: boolean;
+  allowManual?: boolean;
+}
+
+function friendlyHotelHint(upstreamError?: string | null, hasApiKey?: boolean): string | null {
+  if (!hasApiKey) {
+    return "Live hotel search isn't configured. Enter your hotel name manually.";
+  }
+  if (upstreamError) {
+    return "Live hotel search is temporarily unavailable. Enter your hotel name manually.";
+  }
+  return null;
 }
 
 export function HotelSearch({
@@ -50,8 +62,10 @@ export function HotelSearch({
   const [upstreamError, setUpstreamError] = useState<string | null>(null);
   const [manualEntry, setManualEntry] = useState(false);
   const [manualName, setManualName] = useState("");
+  const [skipRemote, setSkipRemote] = useState(false);
 
   useEffect(() => {
+    if (manualEntry || skipRemote) return;
     let cancelled = false;
     const run = async () => {
       setLoading(true);
@@ -60,15 +74,25 @@ export function HotelSearch({
         const params = new URLSearchParams({ location: city });
         if (query.trim()) params.set("query", query.trim());
         const data = await apiFetch<HotelsResponse>(
-          `/places/hotels?${params.toString()}`
+          `/places/hotels?${params.toString()}`,
         );
         if (cancelled) return;
         setResults(data.results);
         setHasApiKey(data.hasApiKey);
         setUpstreamError(data.upstreamError ?? null);
-      } catch (e) {
+        if (!data.hasApiKey || data.upstreamError || data.usedFallback) {
+          setSkipRemote(true);
+          if (!data.results.length) {
+            setManualEntry(true);
+          }
+        }
+      } catch {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Search failed");
+          setError(null);
+          setUpstreamError("unavailable");
+          setSkipRemote(true);
+          setResults([]);
+          setManualEntry(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -79,10 +103,14 @@ export function HotelSearch({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [city, query]);
+  }, [city, query, manualEntry, skipRemote]);
 
   const handleSelect = (hotel: HotelResult) => {
-    onSelect(hotel);
+    onSelect({
+      ...hotel,
+      name: hotel.name.trim(),
+      placeId: hotel.placeId?.startsWith("manual-") ? "" : hotel.placeId,
+    });
     setQuery("");
     setShowResults(false);
     setManualEntry(false);
@@ -149,10 +177,12 @@ export function HotelSearch({
         </View>
         <Pressable
           onPress={() => {
-            if (manualName.trim()) {
+            const name = manualName.trim();
+            if (name) {
+              // No fake Place ID — matching uses normalized hotel name.
               onSelect({
-                placeId: `manual-${Date.now()}`,
-                name: manualName.trim(),
+                placeId: "",
+                name,
                 address: "",
               });
             }
@@ -167,17 +197,21 @@ export function HotelSearch({
             Use this hotel
           </Text>
         </Pressable>
-        <Pressable
-          onPress={() => setManualEntry(false)}
-          style={{ alignItems: "center" }}
-        >
-          <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
-            Cancel
-          </Text>
-        </Pressable>
+        {hasApiKey && !skipRemote ? (
+          <Pressable
+            onPress={() => setManualEntry(false)}
+            style={{ alignItems: "center" }}
+          >
+            <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
+              Cancel
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
+
+  const hint = friendlyHotelHint(upstreamError, hasApiKey);
 
   return (
     <View style={{ gap: 8 }}>
@@ -211,13 +245,9 @@ export function HotelSearch({
         ) : null}
       </View>
 
-      {!hasApiKey ? (
+      {hint ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          Live hotel search isn&apos;t configured yet.
-        </Text>
-      ) : upstreamError ? (
-        <Text style={[styles.hint, { color: "#dc2626" }]}>
-          Hotel search unavailable: {upstreamError}
+          {hint}
         </Text>
       ) : null}
       {error ? (
@@ -240,7 +270,7 @@ export function HotelSearch({
         >
           {results.map((item, index) => (
             <Pressable
-              key={item.placeId}
+              key={item.placeId || `${item.name}-${index}`}
               onPress={() => handleSelect(item)}
               style={({ pressed }) => [
                 styles.resultItem,
@@ -283,7 +313,7 @@ export function HotelSearch({
             </Pressable>
           ))}
         </ScrollView>
-      ) : showResults && !loading && hasApiKey ? (
+      ) : showResults && !loading && hasApiKey && !upstreamError ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           No hotels found in {city}.
         </Text>

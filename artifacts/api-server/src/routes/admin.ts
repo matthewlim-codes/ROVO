@@ -200,15 +200,15 @@ const ADMIN_HTML = `<!DOCTYPE html>
   {
     "name": "SoCal Cup: The Showcase",
     "location": "Los Angeles, CA",
-    "startDate": "2026-06-19",
-    "endDate": "2026-06-21",
+    "startDate": "2026-10-17",
+    "endDate": "2026-10-19",
     "gender": "coed"
   },
   {
     "name": "AAU/JVA Windy City Round-Up",
     "location": "Chicago, IL",
-    "startDate": "2026-06-19",
-    "endDate": "2026-06-21",
+    "startDate": "2026-11-07",
+    "endDate": "2026-11-09",
     "gender": "girls",
     "description": "Girls qualifier event"
   }
@@ -423,7 +423,7 @@ function openModal(type, data = null) {
       <div class="form-row"><div><label>Name *</label><input id="f-name" value="\${esc(data?.name||'')}"></div></div>
       <div class="form-row cols-2">
         <div><label>Location *</label><input id="f-location" placeholder="e.g. Dallas, TX" value="\${esc(data?.location||'')}"></div>
-        <div><label>Display Dates *</label><input id="f-dates" placeholder="e.g. Jan 10–12, 2026" value="\${esc(data?.dates||'')}"></div>
+        <div><label>Display Dates</label><input id="f-dates" placeholder="Optional — auto from start/end" value="\${esc(data?.dates||'')}"></div>
       </div>
       <div class="form-row cols-3">
         <div><label>Start Date *</label><input id="f-start-date" type="date" value="\${esc(data?.startDate||'')}"></div>
@@ -460,15 +460,24 @@ async function saveModal() {
       path = editingId ? '/club-codes/' + editingId : '/club-codes';
       method = editingId ? 'PUT' : 'POST';
     } else if (editingType === 'tournament') {
+      const startDate = v('f-start-date');
+      const endDate = v('f-end-date');
+      if (!v('f-name') || !v('f-location') || !startDate || !endDate) {
+        throw new Error('Name, location, start date, and end date are required');
+      }
+      if (endDate < startDate) {
+        throw new Error('End date must be on or after start date');
+      }
       payload = {
         name: v('f-name'),
         location: v('f-location'),
-        dates: v('f-dates'),
-        startDate: v('f-start-date'),
-        endDate: v('f-end-date'),
+        dates: v('f-dates') || formatDates(startDate, endDate),
+        startDate,
+        endDate,
         gender: v('f-gender') || 'coed',
         description: v('f-description')||null,
         imageUrl: v('f-image-url')||null,
+        hidden: false,
       };
       path = editingId ? '/tournaments/' + editingId : '/tournaments';
       method = editingId ? 'PUT' : 'POST';
@@ -555,7 +564,9 @@ async function runBulkImport() {
     const row = rows[i];
     const name = (row.name || '').trim();
     if (!name) { log('  [' + (i+1) + '] ✗ Missing "name" — skipped', 'err'); fail++; continue; }
+    if (!(row.location || '').trim()) { log('  [' + (i+1) + '] ✗ ' + name + ' — missing location', 'err'); fail++; continue; }
     if (!row.startDate || !row.endDate) { log('  [' + (i+1) + '] ✗ ' + name + ' — missing startDate/endDate', 'err'); fail++; continue; }
+    if (row.endDate < row.startDate) { log('  [' + (i+1) + '] ✗ ' + name + ' — endDate before startDate', 'err'); fail++; continue; }
     const payload = {
       name,
       location: (row.location || '').trim(),
@@ -577,6 +588,7 @@ async function runBulkImport() {
   }
   log('Done. ' + ok + ' added, ' + fail + ' failed.', 'info');
   document.getElementById('import-run-btn').disabled = false;
+  if (ok > 0) await loadAll();
 }
 
 loadAll();

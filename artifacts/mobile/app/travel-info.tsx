@@ -17,10 +17,11 @@ import { Button } from "@/components/Button";
 import { HotelResult, HotelSearch } from "@/components/HotelSearch";
 import { Input } from "@/components/Input";
 import { useAuth } from "@/context/AuthContext";
-import { useTrip } from "@/context/TripContext";
+import { TripSaveError, useTrip } from "@/context/TripContext";
 import { useColors } from "@/hooks/useColors";
 import { buildRideshareGroupId } from "@/utils/tripShare";
 import { formatDateTime } from "@/utils/time";
+import { isValidPlaceId } from "@/utils/matching";
 
 function roundToNearestHalf(date: Date): Date {
   const ms = 30 * 60 * 1000;
@@ -262,7 +263,7 @@ export default function TravelInfoScreen() {
     }
     if (params.prefillHotel) {
       setHotel({
-        placeId: params.prefillHotelPlaceId || `shared-${params.prefillHotel}`,
+        placeId: params.prefillHotelPlaceId || "",
         name: params.prefillHotel,
         address: "",
       });
@@ -290,7 +291,7 @@ export default function TravelInfoScreen() {
       setError("Please select your airport.");
       return;
     }
-    if (!hotel) {
+    if (!hotel || !hotel.name.trim()) {
       setError("Please select your hotel.");
       return;
     }
@@ -303,8 +304,8 @@ export default function TravelInfoScreen() {
         userTeam: user.team,
         tournamentId: selectedTournament.id,
         airport: airport.iataCode ?? airport.name,
-        hotel: hotel.name,
-        hotelPlaceId: hotel.placeId,
+        hotel: hotel.name.trim(),
+        hotelPlaceId: isValidPlaceId(hotel.placeId) ? hotel.placeId : undefined,
         datetime: datetime.toISOString(),
         mode,
         baggageCount: baggage ? parseInt(baggage) : undefined,
@@ -316,27 +317,33 @@ export default function TravelInfoScreen() {
         router.replace(`/chat/${encodeURIComponent(groupId)}`);
         return;
       }
-      if (mode === "arrival") {
+      // Both arrival and departure use the same server matching screen.
+      router.push({
+        pathname: "/rideshare-matches",
+        params: {
+          tripId: trip.id,
+          tripJson: JSON.stringify(trip),
+          showShareCard: "1",
+        },
+      });
+    } catch (e) {
+      if (e instanceof TripSaveError && e.kind === "storage" && e.trip) {
+        // Server succeeded — continue to matches.
         router.push({
           pathname: "/rideshare-matches",
           params: {
-            tripId: trip.id,
-            tripJson: JSON.stringify(trip),
+            tripId: e.trip.id,
+            tripJson: JSON.stringify(e.trip),
             showShareCard: "1",
           },
         });
-      } else {
-        router.push({
-          pathname: "/matches",
-          params: {
-            tripId: trip.id,
-            tripJson: JSON.stringify(trip),
-            showShareCard: "1",
-          },
-        });
+        return;
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not save travel details. Your entries are still here — try again.",
+      );
     } finally {
       setLoading(false);
     }

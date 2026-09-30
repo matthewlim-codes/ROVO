@@ -8,6 +8,12 @@ import React, {
 } from "react";
 
 import { apiFetch, resolveUrl } from "@/utils/api";
+import {
+  airportsMatch,
+  hotelsMatch,
+  isWithinMatchWindow,
+  isValidPlaceId,
+} from "@/utils/matching";
 
 export type TournamentGender = "boys" | "girls" | "coed";
 
@@ -39,6 +45,8 @@ export interface Trip {
   partySize?: number;
 }
 
+export type MessageStatus = "sending" | "sent" | "failed";
+
 export interface ChatMessage {
   id: string;
   groupId: string;
@@ -46,6 +54,7 @@ export interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: string;
+  status?: MessageStatus;
 }
 
 export interface Conversation {
@@ -56,7 +65,6 @@ export interface Conversation {
 }
 
 interface TripContextType {
-
   tournaments: Tournament[];
   tournamentsLoading: boolean;
   tournamentsError: string | null;
@@ -69,9 +77,14 @@ interface TripContextType {
   setSelectedTournament: (t: Tournament | null) => void;
   saveTrip: (trip: Omit<Trip, "id">) => Promise<Trip>;
   deleteTrip: (tripId: string) => Promise<void>;
-  getUserTrip: (userId: string, tournamentId: string) => Trip | null;
+  getUserTrip: (
+    userId: string,
+    tournamentId: string,
+    mode?: "arrival" | "departure",
+  ) => Trip | null;
   getMatches: (trip: Trip) => MatchGroup[];
   sendMessage: (groupId: string, msg: Omit<ChatMessage, "id">) => Promise<void>;
+  retryMessage: (groupId: string, messageId: string) => Promise<void>;
   fetchMessages: (groupId: string) => Promise<ChatMessage[]>;
   loadMessages: (groupId: string) => ChatMessage[];
   fetchConversations: () => Promise<Conversation[]>;
@@ -95,90 +108,46 @@ const TRIPS_KEY = "rsg_trips";
 const MESSAGES_KEY = "rsg_messages";
 const TOURNAMENT_IMAGES_KEY = "rsg_tournament_images";
 
+export class TripSaveError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: "server" | "storage" = "server",
+    public readonly trip?: Trip,
+  ) {
+    super(message);
+    this.name = "TripSaveError";
+  }
+}
 
-const DEMO_TRIPS: Trip[] = [
-  {
-    id: "demo1",
-    userId: "demo-user-1",
-    userName: "Sarah M.",
-    userTeam: "16 Gold",
-    tournamentId: "t1",
-    airport: "DFW",
-    hotel: "Marriott Marquis Dallas",
-    hotelPlaceId: "ChIJmarriott1",
-    datetime: new Date(Date.now() + 2 * 3600000).toISOString(),
-    mode: "arrival",
-  },
-  {
-    id: "demo2",
-    userId: "demo-user-2",
-    userName: "Lisa T.",
-    userTeam: "16 Gold",
-    tournamentId: "t1",
-    airport: "DFW",
-    hotel: "Marriott Marquis Dallas",
-    hotelPlaceId: "ChIJmarriott1",
-    datetime: new Date(Date.now() + 2.5 * 3600000).toISOString(),
-    mode: "arrival",
-  },
-  {
-    id: "demo3",
-    userId: "demo-user-3",
-    userName: "Karen B.",
-    userTeam: "16 Gold",
-    tournamentId: "t1",
-    airport: "DFW",
-    hotel: "Marriott Marquis Dallas",
-    hotelPlaceId: "ChIJmarriott1",
-    datetime: new Date(Date.now() + 2.2 * 3600000).toISOString(),
-    mode: "arrival",
-  },
-  {
-    id: "demo4",
-    userId: "demo-user-4",
-    userName: "Amy P.",
-    userTeam: "16 Gold",
-    tournamentId: "t1",
-    airport: "DFW",
-    hotel: "Hyatt Regency Dallas",
-    hotelPlaceId: "ChIJhyatt1",
-    datetime: new Date(Date.now() + 3 * 3600000).toISOString(),
-    mode: "arrival",
-  },
-  {
-    id: "demo5",
-    userId: "demo-user-5",
-    userName: "Rachel W.",
-    userTeam: "16 Gold",
-    tournamentId: "t1",
-    airport: "DFW",
-    hotel: "Hyatt Regency Dallas",
-    hotelPlaceId: "ChIJhyatt1",
-    datetime: new Date(Date.now() + 3.3 * 3600000).toISOString(),
-    mode: "arrival",
-  },
-];
+export class TripDeleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TripDeleteError";
+  }
+}
+
+function tripIdentityKey(t: Pick<Trip, "userId" | "tournamentId" | "mode">): string {
+  return `${t.userId}-${t.tournamentId}-${t.mode}`;
+}
 
 function groupTripsIntoMatches(trips: Trip[], userTrip: Trip): MatchGroup[] {
-  const sameGroup = trips.filter(
+  const withinWindow = trips.filter(
     (t) =>
       t.id !== userTrip.id &&
       t.tournamentId === userTrip.tournamentId &&
-      t.airport === userTrip.airport &&
+      airportsMatch(t.airport, userTrip.airport) &&
       t.mode === userTrip.mode &&
-      (t.hotel === userTrip.hotel || t.hotelPlaceId === userTrip.hotelPlaceId)
+      hotelsMatch(t.hotel, t.hotelPlaceId, userTrip.hotel, userTrip.hotelPlaceId) &&
+      isWithinMatchWindow(t.datetime, userTrip.datetime),
   );
 
-  const userTime = new Date(userTrip.datetime).getTime();
-  const within45 = sameGroup.filter((t) => {
-    const diff = Math.abs(new Date(t.datetime).getTime() - userTime);
-    return diff <= 45 * 60 * 1000;
-  });
+  if (withinWindow.length === 0) return [];
 
-  if (within45.length === 0) return [];
-
-  const groupKey = `${userTrip.tournamentId}-${userTrip.airport}-${userTrip.hotelPlaceId || userTrip.hotel}-${userTrip.mode}`;
-  const allInGroup = [userTrip, ...within45];
+  const hotelKey = isValidPlaceId(userTrip.hotelPlaceId)
+    ? userTrip.hotelPlaceId
+    : userTrip.hotel;
+  const groupKey = `${userTrip.tournamentId}-${userTrip.airport}-${hotelKey}-${userTrip.mode}`;
+  const allInGroup = [userTrip, ...withinWindow];
   const times = allInGroup.map((t) => new Date(t.datetime).getTime());
   const earliest = new Date(Math.min(...times)).toISOString();
   const latest = new Date(Math.max(...times)).toISOString();
@@ -198,7 +167,7 @@ function groupTripsIntoMatches(trips: Trip[], userTrip: Trip): MatchGroup[] {
 }
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
-  const [trips, setTrips] = useState<Trip[]>(DEMO_TRIPS);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [tripsLoading, setTripsLoading] = useState(true);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [tournamentImages, setTournamentImages] = useState<
@@ -244,20 +213,19 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         partySize: t.partySize ?? undefined,
       }));
       setTrips((prev) => {
-        const serverKeys = new Set(
-          mapped.map((m) => `${m.userId}-${m.tournamentId}`),
-        );
+        const serverKeys = new Set(mapped.map((m) => tripIdentityKey(m)));
         const kept = prev.filter(
           (p) =>
             !p.id.startsWith("srv-") &&
             !(
               p.tournamentId === tournamentId &&
-              serverKeys.has(`${p.userId}-${p.tournamentId}`)
+              serverKeys.has(tripIdentityKey(p))
             ),
         );
         return [...kept, ...mapped];
       });
     } catch {
+      // Leave existing trips; callers can surface errors separately.
     } finally {
       setTripsLoading(false);
     }
@@ -271,7 +239,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       setTournaments(data);
     } catch (e) {
       setTournamentsError(
-        e instanceof Error ? e.message : "Failed to load tournaments"
+        e instanceof Error ? e.message : "Failed to load tournaments",
       );
     } finally {
       setTournamentsLoading(false);
@@ -296,12 +264,17 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     try {
       const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
       const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
-      setTrips([...DEMO_TRIPS, ...stored]);
+      // Strip legacy demo trips if any remain in local storage
+      const cleaned = stored.filter((t) => !t.id.startsWith("demo"));
+      setTrips(cleaned);
       const msgRaw = await AsyncStorage.getItem(MESSAGES_KEY);
       if (msgRaw) setMessages(JSON.parse(msgRaw));
       const imgRaw = await AsyncStorage.getItem(TOURNAMENT_IMAGES_KEY);
       if (imgRaw) setTournamentImages(JSON.parse(imgRaw));
-    } catch {}
+    } catch {
+    } finally {
+      setTripsLoading(false);
+    }
   };
 
   const setTournamentImage = useCallback(
@@ -312,7 +285,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
     },
-    []
+    [],
   );
 
   const tournamentsWithImages: Tournament[] = tournaments.map((t) => ({
@@ -321,101 +294,185 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   }));
 
   const saveTrip = useCallback(async (tripData: Omit<Trip, "id">) => {
-    const tempId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const tempTrip: Trip = { ...tripData, id: tempId };
+    let previousForMode: Trip | undefined;
 
     setTrips((prev) => {
+      previousForMode = prev.find(
+        (t) =>
+          t.userId === tripData.userId &&
+          t.tournamentId === tripData.tournamentId &&
+          t.mode === tripData.mode,
+      );
       const filtered = prev.filter(
         (t) =>
           !(
             t.userId === tripData.userId &&
-            t.tournamentId === tripData.tournamentId
-          )
+            t.tournamentId === tripData.tournamentId &&
+            t.mode === tripData.mode
+          ),
       );
       return [...filtered, tempTrip];
     });
 
+    let serverTrip: { id: string };
     try {
-      const serverTrip = await apiFetch<{ id: string }>("/trips", {
+      serverTrip = await apiFetch<{ id: string }>("/trips", {
         method: "POST",
         body: JSON.stringify({
           tournamentId: tripData.tournamentId,
           airport: tripData.airport,
-          hotel: tripData.hotel,
-          hotelPlaceId: tripData.hotelPlaceId,
+          hotel: tripData.hotel.trim(),
+          hotelPlaceId: isValidPlaceId(tripData.hotelPlaceId)
+            ? tripData.hotelPlaceId
+            : null,
           datetime: tripData.datetime,
           mode: tripData.mode,
           baggageCount: tripData.baggageCount,
           partySize: tripData.partySize,
         }),
       });
-      const stableId = `srv-${serverTrip.id}`;
-      const finalTrip: Trip = { ...tripData, id: stableId };
-
+    } catch (e) {
       setTrips((prev) => {
-        const filtered = prev.filter((t) => t.id !== tempId);
-        return [...filtered, finalTrip];
+        const withoutPending = prev.filter((t) => t.id !== tempId);
+        if (
+          previousForMode &&
+          !withoutPending.some((t) => t.id === previousForMode!.id)
+        ) {
+          return [...withoutPending, previousForMode];
+        }
+        return withoutPending;
       });
+      throw new TripSaveError(
+        e instanceof Error
+          ? e.message
+          : "Could not save travel details. Please try again.",
+        "server",
+      );
+    }
 
+    const stableId = `srv-${serverTrip.id}`;
+    const finalTrip: Trip = { ...tripData, id: stableId };
+
+    setTrips((prev) => {
+      const filtered = prev.filter((t) => t.id !== tempId);
+      return [...filtered, finalTrip];
+    });
+
+    try {
       const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
       const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
       const withoutOld = stored.filter(
         (t) =>
           !(
             t.userId === tripData.userId &&
-            t.tournamentId === tripData.tournamentId
-          )
+            t.tournamentId === tripData.tournamentId &&
+            t.mode === tripData.mode
+          ),
       );
       withoutOld.push(finalTrip);
       await AsyncStorage.setItem(TRIPS_KEY, JSON.stringify(withoutOld));
-
-      return finalTrip;
     } catch {
-      return tempTrip;
+      // Server write succeeded; surface a distinguishable warning but keep the trip.
+      throw new TripSaveError(
+        "Travel details were saved, but this device could not cache them. You can continue.",
+        "storage",
+        finalTrip,
+      );
     }
+
+    return finalTrip;
   }, []);
 
   const deleteTrip = useCallback(async (tripId: string) => {
     const rawId = tripId.replace(/^srv-/, "");
-    setTrips((prev) => prev.filter((t) => t.id !== tripId));
-    const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
-    const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
-    await AsyncStorage.setItem(
-      TRIPS_KEY,
-      JSON.stringify(stored.filter((t) => t.id !== tripId)),
-    );
+    let removed: Trip | undefined;
+    setTrips((prev) => {
+      removed = prev.find((t) => t.id === tripId);
+      return prev.filter((t) => t.id !== tripId);
+    });
+
     try {
       await apiFetch(`/trips/${rawId}`, { method: "DELETE" });
-    } catch {}
+    } catch (e) {
+      if (removed) {
+        setTrips((prev) =>
+          prev.some((t) => t.id === removed!.id) ? prev : [...prev, removed!],
+        );
+      }
+      throw new TripDeleteError(
+        e instanceof Error
+          ? e.message
+          : "Could not delete trip. Please try again.",
+      );
+    }
+
+    try {
+      const tripsRaw = await AsyncStorage.getItem(TRIPS_KEY);
+      const stored: Trip[] = tripsRaw ? JSON.parse(tripsRaw) : [];
+      await AsyncStorage.setItem(
+        TRIPS_KEY,
+        JSON.stringify(stored.filter((t) => t.id !== tripId)),
+      );
+    } catch {
+      // Server delete succeeded — ignore local cache failure.
+    }
   }, []);
 
   const getUserTrip = useCallback(
-    (userId: string, tournamentId: string): Trip | null => {
+    (
+      userId: string,
+      tournamentId: string,
+      mode?: "arrival" | "departure",
+    ): Trip | null => {
       return (
         trips.find(
-          (t) => t.userId === userId && t.tournamentId === tournamentId
+          (t) =>
+            t.userId === userId &&
+            t.tournamentId === tournamentId &&
+            (mode ? t.mode === mode : true),
         ) ?? null
       );
     },
-    [trips]
+    [trips],
   );
 
   const getMatches = useCallback(
     (userTrip: Trip): MatchGroup[] => {
       return groupTripsIntoMatches(trips, userTrip);
     },
-    [trips]
+    [trips],
+  );
+
+  const persistMessages = useCallback(
+    async (next: Record<string, ChatMessage[]>) => {
+      try {
+        await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(next));
+      } catch {
+        // ignore cache failures
+      }
+    },
+    [],
   );
 
   const sendMessage = useCallback(
     async (groupId: string, msg: Omit<ChatMessage, "id">) => {
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      const newMsg: ChatMessage = { ...msg, id: localId };
+      const newMsg: ChatMessage = {
+        ...msg,
+        id: localId,
+        status: msg.senderId === "system" ? "sent" : "sending",
+      };
 
-      setMessages((prev) => ({
-        ...prev,
-        [groupId]: [...(prev[groupId] ?? []), newMsg],
-      }));
+      setMessages((prev) => {
+        const updated = {
+          ...prev,
+          [groupId]: [...(prev[groupId] ?? []), newMsg],
+        };
+        void persistMessages(updated);
+        return updated;
+      });
 
       if (msg.senderId === "system") return;
 
@@ -429,67 +486,158 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
               senderName: msg.senderName,
               text: msg.text,
             }),
-          }
+          },
         );
         setMessages((prev) => {
-          const updated = (prev[groupId] ?? []).map((m) =>
-            m.id === localId
-              ? { ...m, id: serverMsg.id, timestamp: serverMsg.createdAt }
-              : m
-          );
-          return { ...prev, [groupId]: updated };
+          const updated = {
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).map((m) =>
+              m.id === localId
+                ? {
+                    ...m,
+                    id: serverMsg.id,
+                    timestamp: serverMsg.createdAt,
+                    status: "sent" as const,
+                  }
+                : m,
+            ),
+          };
+          void persistMessages(updated);
+          return updated;
         });
-      } catch {}
+      } catch {
+        setMessages((prev) => {
+          const updated = {
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).map((m) =>
+              m.id === localId ? { ...m, status: "failed" as const } : m,
+            ),
+          };
+          void persistMessages(updated);
+          return updated;
+        });
+      }
     },
-    []
+    [persistMessages],
   );
 
-  const fetchMessages = useCallback(async (groupId: string): Promise<ChatMessage[]> => {
-    try {
-      const serverMsgs = await apiFetch<
-        Array<{
-          id: string;
-          groupId: string;
-          senderId: string;
-          senderName: string;
-          text: string;
-          createdAt: string;
-        }>
-      >(`/messages?groupId=${encodeURIComponent(groupId)}`);
-
-      const mapped: ChatMessage[] = serverMsgs.map((m) => ({
-        id: m.id,
-        groupId: m.groupId,
-        senderId: m.senderId,
-        senderName: m.senderName,
-        text: m.text,
-        timestamp: m.createdAt,
-      }));
-
+  const retryMessage = useCallback(
+    async (groupId: string, messageId: string) => {
+      let target: ChatMessage | undefined;
       setMessages((prev) => {
-        const systemMsgs = (prev[groupId] ?? []).filter(
-          (m) => m.senderId === "system"
-        );
-        // Only keep optimistic user messages (NOT system — they also start with "local-"
-        // and would otherwise appear in both systemMsgs and stillPending, duplicating them)
-        const localOptimistic = (prev[groupId] ?? []).filter(
-          (m) => m.id.startsWith("local-") && m.senderId !== "system"
-        );
-        const serverIds = new Set(mapped.map((m) => m.id));
-        const stillPending = localOptimistic.filter((m) => !serverIds.has(m.id));
-        const merged = [...systemMsgs, ...mapped, ...stillPending];
-        merged.sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-        return { ...prev, [groupId]: merged };
+        target = (prev[groupId] ?? []).find((m) => m.id === messageId);
+        if (!target) return prev;
+        const updated = {
+          ...prev,
+          [groupId]: (prev[groupId] ?? []).map((m) =>
+            m.id === messageId ? { ...m, status: "sending" as const } : m,
+          ),
+        };
+        void persistMessages(updated);
+        return updated;
       });
+      if (!target || target.senderId === "system") return;
 
-      return mapped;
-    } catch {
-      return [];
-    }
-  }, []);
+      try {
+        const serverMsg = await apiFetch<{ id: string; createdAt: string }>(
+          "/messages",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              groupId,
+              senderName: target.senderName,
+              text: target.text,
+            }),
+          },
+        );
+        setMessages((prev) => {
+          const updated = {
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    id: serverMsg.id,
+                    timestamp: serverMsg.createdAt,
+                    status: "sent" as const,
+                  }
+                : m,
+            ),
+          };
+          void persistMessages(updated);
+          return updated;
+        });
+      } catch {
+        setMessages((prev) => {
+          const updated = {
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).map((m) =>
+              m.id === messageId ? { ...m, status: "failed" as const } : m,
+            ),
+          };
+          void persistMessages(updated);
+          return updated;
+        });
+      }
+    },
+    [persistMessages],
+  );
+
+  const fetchMessages = useCallback(
+    async (groupId: string): Promise<ChatMessage[]> => {
+      try {
+        const serverMsgs = await apiFetch<
+          Array<{
+            id: string;
+            groupId: string;
+            senderId: string;
+            senderName: string;
+            text: string;
+            createdAt: string;
+          }>
+        >(`/messages?groupId=${encodeURIComponent(groupId)}`);
+
+        const mapped: ChatMessage[] = serverMsgs.map((m) => ({
+          id: m.id,
+          groupId: m.groupId,
+          senderId: m.senderId,
+          senderName: m.senderName,
+          text: m.text,
+          timestamp: m.createdAt,
+          status: "sent",
+        }));
+
+        setMessages((prev) => {
+          const systemMsgs = (prev[groupId] ?? []).filter(
+            (m) => m.senderId === "system",
+          );
+          const localOptimistic = (prev[groupId] ?? []).filter(
+            (m) =>
+              m.id.startsWith("local-") &&
+              m.senderId !== "system" &&
+              (m.status === "sending" || m.status === "failed"),
+          );
+          const serverIds = new Set(mapped.map((m) => m.id));
+          const stillPending = localOptimistic.filter(
+            (m) => !serverIds.has(m.id),
+          );
+          const merged = [...systemMsgs, ...mapped, ...stillPending];
+          merged.sort(
+            (a, b) =>
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+          );
+          const next = { ...prev, [groupId]: merged };
+          void persistMessages(next);
+          return next;
+        });
+
+        return mapped;
+      } catch {
+        return [];
+      }
+    },
+    [persistMessages],
+  );
 
   const fetchConversations = useCallback(async (): Promise<Conversation[]> => {
     try {
@@ -503,7 +651,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     (groupId: string): ChatMessage[] => {
       return messages[groupId] ?? [];
     },
-    [messages]
+    [messages],
   );
 
   return (
@@ -524,6 +672,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         getUserTrip,
         getMatches,
         sendMessage,
+        retryMessage,
         fetchMessages,
         loadMessages,
         fetchConversations,

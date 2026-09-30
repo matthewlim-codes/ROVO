@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { userProfilesTable, updateUserProfileSchema } from "@workspace/db/schema";
+import {
+  userProfilesTable,
+  updateUserProfileSchema,
+  clubCodesTable,
+  clubsTable,
+} from "@workspace/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
 import { z } from "zod/v4";
@@ -21,7 +26,10 @@ async function ensureProfile(userId: string) {
     const u = await clerkClient.users.getUser(userId);
     const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
     name = fullName || u.username || "";
-    email = u.primaryEmailAddress?.emailAddress ?? u.emailAddresses[0]?.emailAddress ?? "";
+    email =
+      u.primaryEmailAddress?.emailAddress ??
+      u.emailAddresses[0]?.emailAddress ??
+      "";
   } catch {}
   const [row] = await db
     .insert(userProfilesTable)
@@ -41,15 +49,14 @@ router.get("/profile", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     const profile = await ensureProfile(userId);
-    res.json(profile);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to load profile" });
+    return res.json(profile);
+  } catch {
+    return res.status(500).json({ error: "Failed to load profile" });
   }
 });
 
 const clubCodeBody = z.object({
-  club: z.string(),
-  team: z.string(),
+  code: z.string().min(1),
 });
 
 router.post("/profile/club-code", requireAuth, async (req, res) => {
@@ -60,19 +67,37 @@ router.post("/profile/club-code", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     await ensureProfile(userId);
+
+    // Verify the club code on the server — never trust client club/team claims.
     const [row] = await db
+      .select({
+        code: clubCodesTable.code,
+        teamName: clubCodesTable.teamName,
+        clubId: clubCodesTable.clubId,
+        clubName: clubsTable.name,
+      })
+      .from(clubCodesTable)
+      .leftJoin(clubsTable, eq(clubCodesTable.clubId, clubsTable.id))
+      .where(eq(clubCodesTable.code, parsed.data.code.trim()))
+      .limit(1);
+
+    if (!row) {
+      return res.status(404).json({ error: "Invalid club code" });
+    }
+
+    const [updated] = await db
       .update(userProfilesTable)
       .set({
-        club: parsed.data.club,
-        team: parsed.data.team,
+        club: row.clubName ?? "",
+        team: row.teamName,
         clubCodeEntered: "true",
         updatedAt: new Date(),
       })
       .where(eq(userProfilesTable.userId, userId))
       .returning();
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to save club code" });
+    return res.json(updated);
+  } catch {
+    return res.status(500).json({ error: "Failed to save club code" });
   }
 });
 
@@ -113,9 +138,9 @@ router.put("/profile", requireAuth, async (req, res) => {
       .set(updates)
       .where(eq(userProfilesTable.userId, userId))
       .returning();
-    res.json(row);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to update profile" });
+    return res.json(row);
+  } catch {
+    return res.status(500).json({ error: "Failed to update profile" });
   }
 });
 

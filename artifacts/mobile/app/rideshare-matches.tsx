@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { TripShareSheet } from "@/components/TripShareSheet";
-import { Trip, useTrip } from "@/context/TripContext";
+import { Trip, TripDeleteError, useTrip } from "@/context/TripContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
@@ -143,9 +143,18 @@ export default function RideshareMatchesScreen() {
     if (!tripId) return;
     setCancelling(true);
     setSheetVisible(false);
-    await deleteTrip(tripId);
-    setCancelling(false);
-    router.replace("/tournaments");
+    try {
+      await deleteTrip(tripId);
+      router.replace("/tournaments");
+    } catch (e) {
+      setError(
+        e instanceof TripDeleteError
+          ? e.message
+          : "Couldn't delete this trip. Please try again.",
+      );
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleEditDetails = () => {
