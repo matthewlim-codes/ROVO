@@ -101,7 +101,19 @@ pnpm --filter @workspace/db run push            # Push Drizzle schema to DB (dev
 pnpm --filter @workspace/api-spec run codegen   # Regenerate Orval client (spec is minimal)
 ```
 
-**No automated tests or CI exist.** Quality gate is `pnpm run typecheck` only.
+**Quality gate:** `pnpm run typecheck`. Focused regression tests live under `artifacts/api-server` and `artifacts/mobile` (`pnpm --filter @workspace/api-server run test`).
+
+**Isolated pilot-dev DB (local only):** never point these at production.
+
+```bash
+# Requires a local Postgres DB named rovo_pilot_dev (see seed-pilot-dev guards)
+DATABASE_URL=postgresql://rovo_dev:rovo_dev_local@127.0.0.1:5432/rovo_pilot_dev \
+  pnpm --filter @workspace/db run push
+ALLOW_PILOT_DEV_SEED=true DATABASE_URL=... pnpm run pilot-dev:seed
+DATABASE_URL=... pnpm run pilot-dev:verify
+```
+
+Seeds a clearly labeled future tournament: `[TEST DEV ONLY] Pilot Match Verification — Dallas`.
 
 **Post-merge hook** (`scripts/post-merge.sh`): `pnpm install --frozen-lockfile` + `pnpm --filter db push`.
 
