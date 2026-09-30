@@ -234,15 +234,23 @@ router.post(
     const parsed = z
       .object({
         cityImageId: z.string().uuid().nullable(),
-        imageAltText: z.string().optional(),
-        imageCredit: z.string().optional(),
+        /** Direct override when no city-library image is selected. */
+        imageUrl: z.string().nullable().optional(),
+        imageAltText: z.string().nullish(),
+        imageCredit: z.string().nullish(),
       })
       .safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues });
+      return res.status(400).json({
+        error: parsed.error.issues
+          .map((i) =>
+            i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message,
+          )
+          .join("; "),
+      });
     }
     try {
-      let imageUrl: string | null | undefined;
+      let nextImageUrl: string | null | undefined = undefined;
       let credit = parsed.data.imageCredit;
       let alt = parsed.data.imageAltText;
       if (parsed.data.cityImageId) {
@@ -252,19 +260,28 @@ router.post(
           .where(eq(cityImagesTable.id, parsed.data.cityImageId))
           .limit(1);
         if (!img) return res.status(404).json({ error: "City image not found" });
-        imageUrl = img.storagePath ?? img.remoteUrl;
+        nextImageUrl = img.storagePath ?? img.remoteUrl;
         credit = credit ?? img.attribution;
         alt = alt ?? img.altText;
+      } else if (parsed.data.imageUrl !== undefined) {
+        // Explicit Image URL (or clear). Do not wipe an existing URL when the
+        // field is omitted — only when imageUrl is sent as null/"".
+        nextImageUrl = parsed.data.imageUrl || null;
       }
+
+      const patch: Record<string, unknown> = {
+        cityImageId: parsed.data.cityImageId,
+        imageAltText: alt ?? null,
+        imageCredit: credit ?? null,
+        updatedAt: new Date(),
+      };
+      if (nextImageUrl !== undefined) {
+        patch.imageUrl = nextImageUrl;
+      }
+
       const [row] = await db
         .update(tournamentsTable)
-        .set({
-          cityImageId: parsed.data.cityImageId,
-          imageUrl: imageUrl ?? null,
-          imageAltText: alt ?? null,
-          imageCredit: credit ?? null,
-          updatedAt: new Date(),
-        })
+        .set(patch)
         .where(eq(tournamentsTable.id, id))
         .returning();
       if (!row) return res.status(404).json({ error: "Tournament not found" });
