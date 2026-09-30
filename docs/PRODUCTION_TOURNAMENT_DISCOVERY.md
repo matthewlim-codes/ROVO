@@ -38,12 +38,26 @@ Backfill intent (see `lib/db/src/MIGRATION_TOURNAMENT_LIFECYCLE.md`):
 
 ## 2. Deploy API + admin static assets
 
+Profile → **Manage club codes** opens **production** admin (`https://rovousa.com/api/admin`), not localhost. Until the API is redeployed, you will still see the old admin (Clubs / Club Codes / Tournaments / Feedback) with **no Pending tab**.
+
 Deploy the API artifact so it includes:
 
 - New routes (`/api/jobs/*`, `/api/discovery/*`, `/api/city-images`, `/api/tournaments/admin`, …)
-- `public/admin/admin.js` + `admin.css` (served under `/api/static/admin/`)
+- Admin SPA (`Pending review`, Scheduled, …) + `dist/public/admin/*` (build copies `public/` into `dist/public/`)
 
-Replit: push/merge this branch and redeploy the **API Server** artifact (and Mobile if you rely on tournament list filtering by `status=published`).
+**Replit (required for Profile → Pending):**
+
+1. Ensure `main` includes the lifecycle/admin PRs (already merged).
+2. In Replit: open the **API Server** artifact → **Deploy** / republish (autoscale). Redeploying only Mobile is not enough.
+3. Verify after deploy:
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" https://rovousa.com/api/static/admin/admin.js
+   # expect 200 (not 404)
+   ```
+4. Hard-refresh admin: `https://rovousa.com/api/admin#pending` (Basic Auth).
+5. Then Profile → Manage club codes should land on Pending.
+
+Also run production schema push + lifecycle backfill (section 1) before expecting Far Western in Pending on prod — discovery data from local `rovo_pilot_dev` does not appear on production.
 
 ## 3. Production secrets / env
 
