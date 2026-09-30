@@ -324,6 +324,9 @@ export default function TournamentsScreen() {
             ) : tournamentsError ? (
               <>
                 <Feather name="alert-circle" size={28} color={colors.mutedForeground} />
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  Couldn&apos;t load tournaments
+                </Text>
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                   {tournamentsError}
                 </Text>
@@ -337,11 +340,20 @@ export default function TournamentsScreen() {
             ) : (
               <>
                 <Feather name="calendar" size={28} color={colors.mutedForeground} />
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  No upcoming tournaments
+                </Text>
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                   {genderFilter === "all"
-                    ? "No upcoming tournaments yet."
-                    : `No upcoming ${genderFilter} tournaments.`}
+                    ? "There are no upcoming tournaments available right now. Past events are hidden automatically. Ask your club director to add the next event in the admin panel, then pull to refresh."
+                    : `There are no upcoming ${genderFilter} tournaments right now. Try the All filter, or ask your club director to add one.`}
                 </Text>
+                <Pressable
+                  onPress={refreshTournaments}
+                  style={[styles.emptyRetry, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={styles.emptyRetryText}>Refresh</Text>
+                </Pressable>
               </>
             )}
           </View>
@@ -673,11 +685,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 60,
     gap: 12,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 14,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_400Regular",
     textAlign: "center",
+    lineHeight: 20,
   },
   emptyRetry: {
     paddingHorizontal: 18,

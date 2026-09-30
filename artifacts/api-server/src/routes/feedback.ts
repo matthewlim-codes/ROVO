@@ -30,9 +30,9 @@ router.post("/feedback", requireAuth, async (req, res) => {
         message: parsed.data.message,
       })
       .returning();
-    res.status(201).json(row);
+    return res.status(201).json(row);
   } catch (e) {
-    res.status(500).json({ error: "Failed to save feedback" });
+    return res.status(500).json({ error: "Failed to save feedback" });
   }
 });
 
@@ -42,18 +42,18 @@ router.get("/feedback", requireAdminAuth, async (_req, res) => {
       .select()
       .from(feedbackTable)
       .orderBy(desc(feedbackTable.createdAt));
-    res.json(rows);
+    return res.json(rows);
   } catch (e) {
-    res.status(500).json({ error: "Failed to fetch feedback" });
+    return res.status(500).json({ error: "Failed to fetch feedback" });
   }
 });
 
 router.delete("/feedback/:id", requireAdminAuth, async (req, res) => {
   try {
     await db.delete(feedbackTable).where(eq(feedbackTable.id, req.params.id as string));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed to delete feedback" });
+    return res.status(500).json({ error: "Failed to delete feedback" });
   }
 });
 

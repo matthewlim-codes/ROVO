@@ -33,7 +33,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
-  const { loadMessages, sendMessage, fetchMessages, trips } = useTrip();
+  const { loadMessages, sendMessage, retryMessage, fetchMessages, trips } = useTrip();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -212,8 +212,22 @@ export default function ChatScreen() {
               isMe && styles.timestampMe,
             ]}
           >
-            {formatMessageTime(item.timestamp)}
+            {item.status === "failed"
+              ? "Not sent"
+              : item.status === "sending"
+                ? "Sending…"
+                : formatMessageTime(item.timestamp)}
           </Text>
+          {item.status === "failed" && isMe ? (
+            <Pressable
+              onPress={() => retryMessage(groupId ?? "", item.id)}
+              style={styles.retryBtn}
+            >
+              <Text style={[styles.retryText, { color: colors.destructive }]}>
+                Tap to retry
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     );
@@ -448,6 +462,14 @@ const styles = StyleSheet.create({
   },
   timestampMe: {
     textAlign: "right",
+  },
+  retryBtn: {
+    paddingHorizontal: 4,
+    paddingTop: 2,
+  },
+  retryText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
   },
   inputBar: {
     flexDirection: "row",

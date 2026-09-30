@@ -91,9 +91,9 @@ router.get("/surveys/pending", requireAuth, async (req, res) => {
       }),
     );
 
-    res.json(enriched);
+    return res.json(enriched);
   } catch {
-    res.status(500).json({ error: "Failed to fetch pending surveys" });
+    return res.status(500).json({ error: "Failed to fetch pending surveys" });
   }
 });
 
@@ -138,9 +138,9 @@ router.post("/surveys", requireAuth, async (req, res) => {
       })
       .returning();
 
-    res.status(201).json(row);
+    return res.status(201).json(row);
   } catch {
-    res.status(500).json({ error: "Failed to save survey" });
+    return res.status(500).json({ error: "Failed to save survey" });
   }
 });
 
@@ -176,9 +176,9 @@ router.post("/surveys/dismiss", requireAuth, async (req, res) => {
         set: { dismissed: "true" },
       });
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch {
-    res.status(500).json({ error: "Failed to dismiss survey" });
+    return res.status(500).json({ error: "Failed to dismiss survey" });
   }
 });
 

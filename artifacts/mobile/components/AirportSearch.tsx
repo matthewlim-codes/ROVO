@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -13,6 +13,10 @@ import {
 
 import { useColors } from "@/hooks/useColors";
 import { apiFetch } from "@/utils/api";
+import {
+  customAirportFromCode,
+  searchLocalAirports,
+} from "@/utils/airports";
 import { extractCity } from "@/utils/location";
 
 export interface AirportResult {
@@ -33,6 +37,13 @@ interface AirportsResponse {
   results: AirportResult[];
   hasApiKey: boolean;
   upstreamError?: string;
+  usedFallback?: boolean;
+  allowCustomCode?: boolean;
+}
+
+function friendlyAirportHint(upstreamError?: string | null): string | null {
+  if (!upstreamError) return null;
+  return "Live airport search is temporarily unavailable. Showing common US airports — or enter a 3-letter code.";
 }
 
 export function AirportSearch({
@@ -43,49 +54,85 @@ export function AirportSearch({
   const colors = useColors();
   const city = extractCity(tournamentLocation);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<AirportResult[]>([]);
+  const [remoteResults, setRemoteResults] = useState<AirportResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
   const [upstreamError, setUpstreamError] = useState<string | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
+
+  const localResults = useMemo(
+    () => searchLocalAirports(query, city),
+    [query, city],
+  );
+
+  const results = useMemo(() => {
+    if (remoteResults.length > 0) return remoteResults;
+    return localResults;
+  }, [remoteResults, localResults]);
 
   useEffect(() => {
     let cancelled = false;
+    // Prefer local search for short queries / known codes to avoid Google billing hits.
+    const q = query.trim();
+    const localStrong =
+      !q ||
+      /^[A-Za-z]{3,4}$/.test(q) ||
+      localResults.length >= 1;
+
+    if (localStrong && (!hasApiKey || usedFallback || !q)) {
+      setRemoteResults([]);
+      setLoading(false);
+      setError(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const run = async () => {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({
-          location: city,
-        });
-        if (query.trim()) params.set("query", query.trim());
+        const params = new URLSearchParams({ location: city });
+        if (q) params.set("query", q);
         const data = await apiFetch<AirportsResponse>(
-          `/places/airports?${params.toString()}`
+          `/places/airports?${params.toString()}`,
         );
         if (cancelled) return;
-        setResults(data.results);
         setHasApiKey(data.hasApiKey);
         setUpstreamError(data.upstreamError ?? null);
-      } catch (e) {
+        setUsedFallback(!!data.usedFallback || !data.hasApiKey);
+        setRemoteResults(data.results);
+      } catch {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Search failed");
+          setUsedFallback(true);
+          setRemoteResults([]);
+          setError(null);
+          setUpstreamError("unavailable");
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-    const t = setTimeout(run, query ? 300 : 0);
+    const t = setTimeout(run, q ? 350 : 0);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [city, query]);
+  }, [city, query, hasApiKey, usedFallback, localResults.length]);
 
   const handleSelect = (a: AirportResult) => {
     onSelect(a);
     setQuery("");
     setShowResults(false);
+  };
+
+  const handleCustomCode = () => {
+    const custom = customAirportFromCode(query);
+    if (custom) {
+      handleSelect(custom);
+    }
   };
 
   if (selected && !showResults) {
@@ -122,6 +169,14 @@ export function AirportSearch({
     );
   }
 
+  const hint = friendlyAirportHint(upstreamError);
+  const showCustom =
+    /^[A-Za-z]{3,4}$/.test(query.trim()) &&
+    !results.some(
+      (r) =>
+        r.iataCode?.toUpperCase() === query.trim().toUpperCase(),
+    );
+
   return (
     <View style={{ gap: 8 }}>
       <View
@@ -138,12 +193,13 @@ export function AirportSearch({
         />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
-          placeholder={`Search airports in ${city}...`}
+          placeholder={`Search airports (code, city, or name)`}
           placeholderTextColor={colors.mutedForeground}
           value={query}
           onChangeText={setQuery}
           onFocus={() => setShowResults(true)}
           autoCorrect={false}
+          autoCapitalize="characters"
         />
         {loading ? (
           <ActivityIndicator
@@ -154,13 +210,13 @@ export function AirportSearch({
         ) : null}
       </View>
 
-      {!hasApiKey ? (
+      {hint ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          Live airport search isn&apos;t configured yet.
+          {hint}
         </Text>
-      ) : upstreamError ? (
-        <Text style={[styles.hint, { color: "#dc2626" }]}>
-          Airport search unavailable: {upstreamError}
+      ) : !hasApiKey || usedFallback ? (
+        <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+          Showing common US airports. Type a 3-letter code for any other airport.
         </Text>
       ) : null}
       {error ? (
@@ -185,7 +241,7 @@ export function AirportSearch({
         >
           {results.map((item, index) => (
             <Pressable
-              key={item.placeId}
+              key={`${item.placeId}-${item.iataCode ?? index}`}
               onPress={() => handleSelect(item)}
               style={({ pressed }) => [
                 styles.resultItem,
@@ -226,10 +282,24 @@ export function AirportSearch({
             </Pressable>
           ))}
         </ScrollView>
-      ) : showResults && !loading && hasApiKey && !upstreamError ? (
+      ) : showResults && !loading && query.trim() && !showCustom ? (
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          No airports found near {city}.
+          No airports matched. Try a city name or a 3-letter code (for example, DFW).
         </Text>
+      ) : null}
+
+      {showResults && showCustom ? (
+        <Pressable
+          onPress={handleCustomCode}
+          style={[
+            styles.customCodeBtn,
+            { backgroundColor: colors.primary, borderRadius: 12 },
+          ]}
+        >
+          <Text style={styles.customCodeText}>
+            Use airport code {query.trim().toUpperCase()}
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -290,5 +360,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     paddingHorizontal: 4,
+  },
+  customCodeBtn: {
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customCodeText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
 });

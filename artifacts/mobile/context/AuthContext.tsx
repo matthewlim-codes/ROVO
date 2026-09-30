@@ -178,14 +178,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const enterClubCode = useCallback(
     async (code: string) => {
       if (!user) return;
-      let clubInfo: { clubName: string | null; teamName: string };
+      // Server verifies the code and sets club/team from trusted DB rows.
       try {
-        clubInfo = await apiFetch<{
-          code: string;
-          teamName: string;
-          clubId: string;
-          clubName: string | null;
-        }>(`/club-codes/verify/${encodeURIComponent(code)}`);
+        const updated = await apiFetch<ServerProfile>("/profile/club-code", {
+          method: "POST",
+          body: JSON.stringify({ code }),
+        });
+        setUser(profileToUser(updated));
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           throw new InvalidClubCodeError();
@@ -195,14 +194,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         throw new ClubCodeNetworkError();
       }
-      const updated = await apiFetch<ServerProfile>("/profile/club-code", {
-        method: "POST",
-        body: JSON.stringify({
-          club: clubInfo.clubName ?? "",
-          team: clubInfo.teamName,
-        }),
-      });
-      setUser(profileToUser(updated));
     },
     [user],
   );

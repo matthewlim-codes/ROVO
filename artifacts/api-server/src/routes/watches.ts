@@ -11,10 +11,14 @@ import { sendPushToUsers } from "../lib/push";
 import { recordWatchMatchEvent } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
+import {
+  MATCH_WINDOW_MS,
+  hotelsMatch,
+  normalizeAirportCode,
+  routeParam,
+} from "../lib/matching";
 
 const router = Router();
-
-const FORTY_FIVE_MIN_MS = 45 * 60 * 1000;
 
 const createWatchBody = z.object({
   tournamentId: z.string().uuid(),
@@ -25,6 +29,22 @@ const createWatchBody = z.object({
   mode: z.enum(["arrival", "departure"]),
 });
 
+function sanitizeHotelPlaceId(
+  placeId: string | null | undefined,
+): string | null {
+  if (!placeId) return null;
+  const id = placeId.trim();
+  if (!id) return null;
+  if (
+    id.startsWith("manual-") ||
+    id.startsWith("shared-") ||
+    id.startsWith("local-")
+  ) {
+    return null;
+  }
+  return id;
+}
+
 router.get("/watches", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -32,9 +52,9 @@ router.get("/watches", requireAuth, async (req, res) => {
       .select()
       .from(rideWatchesTable)
       .where(eq(rideWatchesTable.userId, userId));
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to fetch watches" });
+    return res.json(rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch watches" });
   }
 });
 
@@ -47,6 +67,9 @@ router.post("/watches", requireAuth, async (req, res) => {
     const userId = getUserId(req);
     const profile = await getOrCreateProfile(userId);
     const userName = profile?.name || "A traveler";
+    const airport = normalizeAirportCode(parsed.data.airport);
+    const hotel = parsed.data.hotel.trim();
+    const hotelPlaceId = sanitizeHotelPlaceId(parsed.data.hotelPlaceId);
 
     await db
       .delete(rideWatchesTable)
@@ -63,9 +86,9 @@ router.post("/watches", requireAuth, async (req, res) => {
         userId,
         userName,
         tournamentId: parsed.data.tournamentId,
-        airport: parsed.data.airport,
-        hotel: parsed.data.hotel,
-        hotelPlaceId: parsed.data.hotelPlaceId ?? null,
+        airport,
+        hotel,
+        hotelPlaceId,
         datetime: parsed.data.datetime,
         mode: parsed.data.mode,
       })
@@ -78,17 +101,15 @@ router.post("/watches", requireAuth, async (req, res) => {
         and(
           eq(tripsTable.tournamentId, watch.tournamentId),
           eq(tripsTable.mode, watch.mode),
-          eq(tripsTable.airport, watch.airport),
         ),
       );
     const watchTime = new Date(watch.datetime).getTime();
     const matched = trips.filter(
       (t) =>
         t.userId !== watch.userId &&
-        (t.hotel === watch.hotel ||
-          (t.hotelPlaceId && watch.hotelPlaceId && t.hotelPlaceId === watch.hotelPlaceId) ||
-          t.hotel.trim().toLowerCase() === watch.hotel.trim().toLowerCase()) &&
-        Math.abs(new Date(t.datetime).getTime() - watchTime) <= FORTY_FIVE_MIN_MS,
+        normalizeAirportCode(t.airport) === watch.airport &&
+        hotelsMatch(t.hotel, t.hotelPlaceId, watch.hotel, watch.hotelPlaceId) &&
+        Math.abs(new Date(t.datetime).getTime() - watchTime) <= MATCH_WINDOW_MS,
     );
 
     if (matched.length) {
@@ -122,26 +143,30 @@ router.post("/watches", requireAuth, async (req, res) => {
       });
     }
 
-    res.status(201).json(watch);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to save watch" });
+    return res.status(201).json(watch);
+  } catch {
+    return res.status(500).json({ error: "Failed to save watch" });
   }
 });
 
 router.delete("/watches/:id", requireAuth, async (req, res) => {
+  const id = routeParam(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "Watch id is required" });
+  }
   try {
     const userId = getUserId(req);
     await db
       .delete(rideWatchesTable)
       .where(
         and(
-          eq(rideWatchesTable.id, req.params.id as string),
+          eq(rideWatchesTable.id, id),
           eq(rideWatchesTable.userId, userId),
         ),
       );
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to delete watch" });
+    return res.json({ ok: true });
+  } catch {
+    return res.status(500).json({ error: "Failed to delete watch" });
   }
 });
 

@@ -4,18 +4,23 @@ import {
   tripsTable,
   rideWatchesTable,
   notificationsTable,
+  userProfilesTable,
 } from "@workspace/db/schema";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, ne, sql, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import { sendPushToUsers } from "../lib/push";
 import { recordMatchEvents } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
+import {
+  MATCH_WINDOW_MS,
+  hotelsMatch,
+  normalizeAirportCode,
+  routeParam,
+  tripsMatchCriteria,
+} from "../lib/matching";
 
 const router = Router();
-
-const FORTY_FIVE_MIN_MS = 45 * 60 * 1000;
-const SIXTY_MIN_MS = 60 * 60 * 1000;
 
 const createTripBody = z.object({
   tournamentId: z.string().uuid(),
@@ -28,28 +33,67 @@ const createTripBody = z.object({
   partySize: z.number().int().min(1).nullable().optional(),
 });
 
-function hotelsMatch(
-  hotelA: string,
-  placeIdA: string | null | undefined,
-  hotelB: string,
-  placeIdB: string | null | undefined,
-): boolean {
-  if (hotelA.trim().toLowerCase() === hotelB.trim().toLowerCase()) return true;
-  if (placeIdA && placeIdB && placeIdA === placeIdB) return true;
-  return false;
+function sanitizeHotelPlaceId(
+  placeId: string | null | undefined,
+): string | null {
+  if (!placeId) return null;
+  const id = placeId.trim();
+  if (!id) return null;
+  if (
+    id.startsWith("manual-") ||
+    id.startsWith("shared-") ||
+    id.startsWith("local-")
+  ) {
+    return null;
+  }
+  return id;
 }
 
-router.get("/trips", async (req, res) => {
+async function requireClubMembership(userId: string) {
+  const profile = await getOrCreateProfile(userId);
+  if (!profile || profile.clubCodeEntered !== "true" || !profile.club) {
+    return null;
+  }
+  return profile;
+}
+
+router.get("/trips", requireAuth, async (req, res) => {
   const tournamentId =
     typeof req.query.tournamentId === "string" ? req.query.tournamentId : undefined;
   try {
+    const userId = getUserId(req);
+    const profile = await requireClubMembership(userId);
+    if (!profile) {
+      return res.status(403).json({ error: "Club membership required" });
+    }
+
+    // Scope to travelers in the same verified club (trusted server profile).
+    const clubMembers = await db
+      .select({ userId: userProfilesTable.userId })
+      .from(userProfilesTable)
+      .where(
+        and(
+          eq(userProfilesTable.club, profile.club),
+          eq(userProfilesTable.clubCodeEntered, "true"),
+        ),
+      );
+    const memberIds = clubMembers.map((m) => m.userId);
+    if (!memberIds.length) {
+      return res.json([]);
+    }
+
+    const conditions = [inArray(tripsTable.userId, memberIds)];
+    if (tournamentId) {
+      conditions.push(eq(tripsTable.tournamentId, tournamentId));
+    }
+
     const rows = await db
       .select()
       .from(tripsTable)
-      .where(tournamentId ? eq(tripsTable.tournamentId, tournamentId) : undefined);
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to fetch trips" });
+      .where(and(...conditions));
+    return res.json(rows);
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch trips" });
   }
 });
 
@@ -59,6 +103,7 @@ router.get("/trips/matches", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "tripId is required" });
   }
   try {
+    const userId = getUserId(req);
     const [trip] = await db
       .select()
       .from(tripsTable)
@@ -67,27 +112,49 @@ router.get("/trips/matches", requireAuth, async (req, res) => {
     if (!trip) {
       return res.status(404).json({ error: "Trip not found" });
     }
+    if (trip.userId !== userId) {
+      return res.status(403).json({ error: "Not your trip" });
+    }
 
-    const matches = await db
+    const candidates = await db
       .select()
       .from(tripsTable)
       .where(
         and(
           eq(tripsTable.tournamentId, trip.tournamentId),
-          eq(tripsTable.airport, trip.airport),
           eq(tripsTable.mode, trip.mode),
           ne(tripsTable.userId, trip.userId),
-          sql`ABS(EXTRACT(EPOCH FROM (${tripsTable.datetime} - ${trip.datetime}::timestamptz)) * 1000) <= ${SIXTY_MIN_MS}`,
         ),
       );
+
+    const matches = candidates.filter((t) =>
+      tripsMatchCriteria(
+        {
+          tournamentId: trip.tournamentId,
+          airport: trip.airport,
+          hotel: trip.hotel,
+          hotelPlaceId: trip.hotelPlaceId,
+          datetime: trip.datetime,
+          mode: trip.mode,
+        },
+        {
+          tournamentId: t.tournamentId,
+          airport: t.airport,
+          hotel: t.hotel,
+          hotelPlaceId: t.hotelPlaceId,
+          datetime: t.datetime,
+          mode: t.mode,
+        },
+      ),
+    );
 
     const sorted = matches.sort(
       (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime(),
     );
 
-    res.json(sorted);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to fetch rideshare matches" });
+    return res.json(sorted);
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch rideshare matches" });
   }
 });
 
@@ -101,35 +168,48 @@ router.post("/trips", requireAuth, async (req, res) => {
     const profile = await getOrCreateProfile(userId);
     const userName = profile?.name || "A traveler";
     const userTeam = profile?.team || null;
+    const airport = normalizeAirportCode(parsed.data.airport);
+    const hotel = parsed.data.hotel.trim();
+    const hotelPlaceId = sanitizeHotelPlaceId(parsed.data.hotelPlaceId);
 
-    await db
-      .delete(tripsTable)
-      .where(
-        and(
-          eq(tripsTable.userId, userId),
-          eq(tripsTable.tournamentId, parsed.data.tournamentId),
-        ),
-      );
-    const [trip] = await db
-      .insert(tripsTable)
-      .values({
-        userId,
-        userName,
-        userTeam,
-        tournamentId: parsed.data.tournamentId,
-        airport: parsed.data.airport,
-        hotel: parsed.data.hotel,
-        hotelPlaceId: parsed.data.hotelPlaceId ?? null,
-        datetime: parsed.data.datetime,
-        mode: parsed.data.mode,
-        baggageCount: parsed.data.baggageCount ?? null,
-        partySize: parsed.data.partySize ?? null,
-      })
-      .returning();
+    if (!hotel) {
+      return res.status(400).json({ error: "Hotel name is required" });
+    }
+
+    // Replace only the same mode; keep arrival and departure independent.
+    // Atomic: delete+insert in one transaction so a failed insert cannot
+    // leave the user with no trip.
+    const trip = await db.transaction(async (tx) => {
+      await tx
+        .delete(tripsTable)
+        .where(
+          and(
+            eq(tripsTable.userId, userId),
+            eq(tripsTable.tournamentId, parsed.data.tournamentId),
+            eq(tripsTable.mode, parsed.data.mode),
+          ),
+        );
+      const [inserted] = await tx
+        .insert(tripsTable)
+        .values({
+          userId,
+          userName,
+          userTeam,
+          tournamentId: parsed.data.tournamentId,
+          airport,
+          hotel,
+          hotelPlaceId,
+          datetime: parsed.data.datetime,
+          mode: parsed.data.mode,
+          baggageCount: parsed.data.baggageCount ?? null,
+          partySize: parsed.data.partySize ?? null,
+        })
+        .returning();
+      return inserted;
+    });
 
     const tripTime = new Date(trip.datetime).getTime();
 
-    // --- Match against existing trips (trip-to-trip) ---
     const existingTrips = await db
       .select()
       .from(tripsTable)
@@ -137,15 +217,12 @@ router.post("/trips", requireAuth, async (req, res) => {
         and(
           eq(tripsTable.tournamentId, trip.tournamentId),
           eq(tripsTable.mode, trip.mode),
-          eq(tripsTable.airport, trip.airport),
           ne(tripsTable.userId, trip.userId),
         ),
       );
 
-    const matchedTrips = existingTrips.filter(
-      (t) =>
-        hotelsMatch(t.hotel, t.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
-        Math.abs(new Date(t.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
+    const matchedTrips = existingTrips.filter((t) =>
+      tripsMatchCriteria(trip, t),
     );
 
     if (matchedTrips.length) {
@@ -170,7 +247,6 @@ router.post("/trips", requireAuth, async (req, res) => {
       );
     }
 
-    // --- Match against active watches (trip-to-watch) ---
     const watches = await db
       .select()
       .from(rideWatchesTable)
@@ -178,7 +254,6 @@ router.post("/trips", requireAuth, async (req, res) => {
         and(
           eq(rideWatchesTable.tournamentId, trip.tournamentId),
           eq(rideWatchesTable.mode, trip.mode),
-          eq(rideWatchesTable.airport, trip.airport),
           eq(rideWatchesTable.active, "true"),
         ),
       );
@@ -187,7 +262,8 @@ router.post("/trips", requireAuth, async (req, res) => {
       (w) =>
         w.userId !== trip.userId &&
         hotelsMatch(w.hotel, w.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
-        Math.abs(new Date(w.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
+        normalizeAirportCode(w.airport) === trip.airport &&
+        Math.abs(new Date(w.datetime).getTime() - tripTime) <= MATCH_WINDOW_MS,
     );
 
     if (matchedWatches.length) {
@@ -218,14 +294,17 @@ router.post("/trips", requireAuth, async (req, res) => {
       );
     }
 
-    res.status(201).json(trip);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to save trip" });
+    return res.status(201).json(trip);
+  } catch {
+    return res.status(500).json({ error: "Failed to save trip" });
   }
 });
 
 router.delete("/trips/:id", requireAuth, async (req, res) => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "Trip id is required" });
+  }
   const userId = getUserId(req);
   try {
     const [trip] = await db
@@ -239,8 +318,6 @@ router.delete("/trips/:id", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Not your trip" });
     }
 
-    // Find matched trips BEFORE deleting so we can notify them
-    const tripTime = new Date(trip.datetime).getTime();
     const candidateTrips = await db
       .select()
       .from(tripsTable)
@@ -248,15 +325,12 @@ router.delete("/trips/:id", requireAuth, async (req, res) => {
         and(
           eq(tripsTable.tournamentId, trip.tournamentId),
           eq(tripsTable.mode, trip.mode),
-          eq(tripsTable.airport, trip.airport),
           ne(tripsTable.userId, trip.userId),
         ),
       );
 
-    const cancelledMatches = candidateTrips.filter(
-      (t) =>
-        hotelsMatch(t.hotel, t.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
-        Math.abs(new Date(t.datetime).getTime() - tripTime) <= FORTY_FIVE_MIN_MS,
+    const cancelledMatches = candidateTrips.filter((t) =>
+      tripsMatchCriteria(trip, t),
     );
 
     await db.delete(tripsTable).where(eq(tripsTable.id, id));
@@ -281,9 +355,9 @@ router.delete("/trips/:id", requireAuth, async (req, res) => {
       );
     }
 
-    res.status(204).end();
-  } catch (e) {
-    res.status(500).json({ error: "Failed to delete trip" });
+    return res.status(204).end();
+  } catch {
+    return res.status(500).json({ error: "Failed to delete trip" });
   }
 });
 
