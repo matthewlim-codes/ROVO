@@ -89,7 +89,7 @@ Set on the API deployment (Replit Secrets):
 ### Expected first NCVA result (as of inspection)
 
 - **Boys' Far Western National Qualifier** — 2026-12-12 → 2026-12-13 — McClellan Park, CA — https://ncva.com/boysbid/
-- **Expected publish date:** 2026-11-12
+- **Expected publish date:** 2026-06-12 (6 calendar months before start)
 - **Attendance evidence:** none from the calendar alone → **pending review** until a club schedule / registration list / admin verification is attached
 
 ## 5. Daily scheduler (Replit autoscale)
