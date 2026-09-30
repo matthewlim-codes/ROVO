@@ -15,7 +15,10 @@ import {
   requiredFieldsMissing,
   type DiscoveredEvent,
 } from "./types";
-import { normalizeEventIdentity } from "../lib/tournamentLifecycle";
+import {
+  crossSourceDedupeKey,
+  normalizeEventIdentity,
+} from "../lib/tournamentLifecycle";
 
 export type DiscoveryChange =
   | {
@@ -138,13 +141,10 @@ function discoveredValue(
 function evaluateAutoApprove(
   evidence: DiscoveredEvent["attendanceEvidence"],
   policy: AutoApprovePolicy,
-  clubCountConfigured: number,
+  _clubCountConfigured: number,
 ): { ok: boolean; reason: string } {
   if (!policy.enabled) {
     return { ok: false, reason: "Auto-approve disabled — pending review" };
-  }
-  if (clubCountConfigured === 0) {
-    return { ok: false, reason: "No California clubs configured — setup required" };
   }
   const accepted = evidence.filter((ev) =>
     policy.acceptedEvidenceTypes.includes(ev.evidenceType),
@@ -179,7 +179,10 @@ export async function runDiscoveryJob(opts: {
   const dryRun = !!opts.dryRun;
   const policy = await loadPolicy();
 
-  const caClubs = await db.select().from(californiaClubsTable).where(eq(californiaClubsTable.active, true));
+  const caClubs = await db
+    .select()
+    .from(californiaClubsTable)
+    .where(eq(californiaClubsTable.active, true));
   const sources = await db
     .select()
     .from(discoverySourcesTable)
@@ -187,7 +190,9 @@ export async function runDiscoveryJob(opts: {
 
   const summary: DiscoverySummary = {
     dryRun,
-    setupRequired: caClubs.length === 0 || sources.length === 0,
+    // Discovery only needs enabled sources. Auto-approve still requires
+    // attendance evidence (+ optional CA club records); lack of evidence → pending.
+    setupRequired: sources.length === 0,
     sourcesChecked: 0,
     sourceFailures: [],
     changes: [],
@@ -198,20 +203,27 @@ export async function runDiscoveryJob(opts: {
     discrepancies: 0,
   };
 
-  if (caClubs.length === 0 || sources.length === 0) {
+  if (sources.length === 0) {
     summary.setupMessage =
-      "Setup required: add at least one California club and one enabled discovery source before discovery can approve events. No guesses are made.";
+      "Setup required: enable at least one discovery source (NCVA and/or SCVA).";
     return summary;
   }
 
   const existing = await db.select().from(tournamentsTable);
   const byOrgId = new Map<string, Tournament>();
   const byIdentity = new Map<string, Tournament>();
+  const byCrossKey = new Map<string, Tournament>();
   for (const t of existing) {
     if (t.organizerEventId) {
       byOrgId.set(`${t.organizer ?? ""}:${t.organizerEventId}`, t);
     }
     if (t.normalizedIdentity) byIdentity.set(t.normalizedIdentity, t);
+    if (t.name && t.startDate) {
+      byCrossKey.set(
+        crossSourceDedupeKey({ name: t.name, startDate: t.startDate }),
+        t,
+      );
+    }
   }
 
   for (const source of sources) {
@@ -284,10 +296,15 @@ export async function runDiscoveryJob(opts: {
         caClubs.length,
       );
 
+      const crossKey = crossSourceDedupeKey({
+        name: event.name,
+        startDate: event.startDate,
+      });
       const match =
         (event.organizerEventId &&
           byOrgId.get(`${event.organizer ?? ""}:${event.organizerEventId}`)) ||
-        byIdentity.get(identity);
+        byIdentity.get(identity) ||
+        byCrossKey.get(crossKey);
 
       if (!match) {
         const status =
@@ -306,6 +323,25 @@ export async function runDiscoveryJob(opts: {
         if (status === "approved") summary.autoApproved += 1;
         else summary.pendingReview += 1;
         summary.created += 1;
+
+        // Placeholder so a later source in this same run cannot create a duplicate.
+        const placeholder = {
+          id: `dry-${identity}`,
+          name: event.name,
+          startDate: event.startDate,
+          organizer: event.organizer ?? null,
+          organizerEventId: event.organizerEventId ?? null,
+          normalizedIdentity: identity,
+          manualFields: [] as string[],
+        } as Tournament;
+        byIdentity.set(identity, placeholder);
+        byCrossKey.set(crossKey, placeholder);
+        if (event.organizerEventId) {
+          byOrgId.set(
+            `${event.organizer ?? ""}:${event.organizerEventId}`,
+            placeholder,
+          );
+        }
 
         if (!dryRun) {
           const now = new Date();
@@ -336,6 +372,7 @@ export async function runDiscoveryJob(opts: {
             })
             .returning();
           byIdentity.set(identity, created);
+          byCrossKey.set(crossKey, created);
           if (created.organizerEventId) {
             byOrgId.set(
               `${created.organizer ?? ""}:${created.organizerEventId}`,

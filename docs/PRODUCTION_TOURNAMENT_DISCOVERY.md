@@ -6,16 +6,18 @@ Exact steps for the existing Replit autoscale app. **Do not run migration from t
 
 | Piece | Status |
 |-------|--------|
-| `ncva_calendar` adapter | **Implemented** — NCVA WordPress REST calendar (`/wp-json/wp/v2/pages?slug=events`) |
+| `ncva_calendar` adapter | **Implemented** — https://ncva.com/events/ via WordPress REST |
+| `scva_tournaments` adapter | **Implemented** — https://www.scvavolleyball.org/tournaments (Wix HTML listing) |
 | `manual_json` | **Implemented** — HTTPS JSON array or inline events (import workflow) |
 | `static_fixture` | **Test-only** — blocked unless `ALLOW_TEST_ADAPTERS=true` |
 | `aes_official` / `jva_calendar` / `usav_events` | **Proposed** — not implemented (see blockers below) |
+| Cross-source dedupe | Same name+startDate from NCVA and SCVA → one tournament row |
 
 ## Blockers for other sources (verified)
 
 - **AES / SportsEngine** (`results.advancedeventsystems.com`): public routes return the SPA HTML shell; OData roots do not expose a searchable event catalog. Needs official API/partner access.
 - **USAV `/events/`**: HTML listing only; no public `wp/v2` events collection. Useful for human cross-check (e.g. Far Western boys also listed with Event Website → `ncva.com/boysbid/`).
-- **SCVA tournaments page**: Wix site; no structured calendar API found.
+- ~~**SCVA tournaments page**~~: now ingested via `scva_tournaments` HTML listing parser.
 
 ## 1. Migration (preserve existing tournaments)
 
@@ -77,10 +79,11 @@ Set on the API deployment (Replit Secrets):
 ## 4. Admin configuration (your action after deploy)
 
 1. Open `https://YOUR_API_HOST/api/admin` (Basic Auth).
-2. **Sources & CA clubs**
-   - Add California clubs that should count for attendance (real clubs only).
-   - Add discovery source:
-     - Name: `NCVA official calendar`
+2. **Sources**
+   - Click **Ensure NCVA + SCVA** (or add sources manually).
+   - Clubs (invite-code orgs) live under the single **Clubs** tab — there is no separate California Clubs tab.
+   - Discovery sources:
+     - Name: `NCVA events`
      - Adapter: `ncva_calendar`
      - Config (default from admin prompt):  
        `{ "baseUrl":"https://ncva.com", "calendarPageSlug":"events", "genders":["boys"], "includePast":false }`

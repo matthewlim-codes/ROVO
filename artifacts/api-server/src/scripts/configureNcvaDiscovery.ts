@@ -79,58 +79,68 @@ async function upsertClubs() {
   }
 }
 
-async function upsertNcvaSource() {
+async function upsertSource(def: {
+  name: string;
+  adapterKey: string;
+  config: Record<string, unknown>;
+}) {
   const sources = await db.select().from(discoverySourcesTable);
-  const found = sources.find((s) => s.adapterKey === "ncva_calendar");
-  const config = {
-    baseUrl: "https://ncva.com",
-    calendarPageSlug: "events",
-    genders: ["boys"],
-    includePast: false,
-  };
+  const found = sources.find((s) => s.adapterKey === def.adapterKey);
   if (found) {
     await db
       .update(discoverySourcesTable)
       .set({
-        name: "NCVA official calendar",
+        name: def.name,
         kind: "structured_calendar",
-        adapterKey: "ncva_calendar",
+        adapterKey: def.adapterKey,
         enabled: true,
-        config,
-        // Disable any leftover test fixtures on this DB
+        config: def.config,
         updatedAt: new Date(),
       })
       .where(eq(discoverySourcesTable.id, found.id));
-    console.log("updated source: NCVA official calendar");
+    console.log("updated source:", def.name);
   } else {
     await db.insert(discoverySourcesTable).values({
-      name: "NCVA official calendar",
+      name: def.name,
       kind: "structured_calendar",
-      adapterKey: "ncva_calendar",
+      adapterKey: def.adapterKey,
       enabled: true,
-      config,
+      config: def.config,
     });
-    console.log("created source: NCVA official calendar");
+    console.log("created source:", def.name);
   }
+}
 
-  // Keep test fixtures and unimplemented stubs out of active discovery on this DB
+async function upsertNcvaSource() {
+  await upsertSource({
+    name: "NCVA events",
+    adapterKey: "ncva_calendar",
+    config: {
+      baseUrl: "https://ncva.com",
+      calendarPageSlug: "events",
+      genders: ["boys"],
+      includePast: false,
+    },
+  });
+  await upsertSource({
+    name: "SCVA tournaments",
+    adapterKey: "scva_tournaments",
+    config: {
+      url: "https://www.scvavolleyball.org/tournaments",
+      includePast: false,
+    },
+  });
+
+  const sources = await db.select().from(discoverySourcesTable);
+  const keep = new Set(["ncva_calendar", "scva_tournaments"]);
   for (const s of sources) {
-    if (s.adapterKey === "ncva_calendar") continue;
-    if (
-      s.adapterKey === "static_fixture" ||
-      s.adapterKey === "aes_official" ||
-      s.adapterKey === "jva_calendar" ||
-      s.adapterKey === "usav_events" ||
-      s.enabled
-    ) {
-      // Disable everything except the NCVA source we just upserted / will upsert
-      if (s.adapterKey !== "manual_json") {
-        await db
-          .update(discoverySourcesTable)
-          .set({ enabled: false, updatedAt: new Date() })
-          .where(eq(discoverySourcesTable.id, s.id));
-        console.log("disabled non-production source:", s.name, s.adapterKey);
-      }
+    if (keep.has(s.adapterKey)) continue;
+    if (s.enabled) {
+      await db
+        .update(discoverySourcesTable)
+        .set({ enabled: false, updatedAt: new Date() })
+        .where(eq(discoverySourcesTable.id, s.id));
+      console.log("disabled non-production source:", s.name, s.adapterKey);
     }
   }
 }
