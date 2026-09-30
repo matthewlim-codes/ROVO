@@ -36,28 +36,31 @@ Backfill intent (see `lib/db/src/MIGRATION_TOURNAMENT_LIFECYCLE.md`):
 - Default timezone `America/Los_Angeles` where unset
 - **No deletes**; trips/messages unchanged
 
-## 2. Deploy API + admin static assets
+## 2. Publish on Replit (project-level — not “API only”)
 
-Profile → **Manage club codes** opens **production** admin (`https://rovousa.com/api/admin`), not localhost. Until the API is redeployed, you will still see the old admin (Clubs / Club Codes / Tournaments / Feedback) with **no Pending tab**.
+Profile → **Manage club codes** opens **production** admin (`https://rovousa.com/api/admin`). Until the project is published with the new code, you will still see the old admin (no Pending tab).
 
-Deploy the API artifact so it includes:
+**Important Replit detail:** there is **no** “publish only the API Server artifact” control. The **Publish** button is in the **upper-right of the project editor** (Build or Design mode). Publishing deploys the project’s artifacts **together**.
 
-- New routes (`/api/jobs/*`, `/api/discovery/*`, `/api/city-images`, `/api/tournaments/admin`, …)
-- Admin SPA (`Pending review`, Scheduled, …) + `dist/public/admin/*` (build copies `public/` into `dist/public/`)
+### Do this *before* Publish
 
-**Replit (required for Profile → Pending):**
-
-1. Ensure `main` includes the lifecycle/admin PRs (already merged).
-2. In Replit: open the **API Server** artifact → **Deploy** / republish (autoscale). Redeploying only Mobile is not enough.
-3. Verify after deploy:
+1. **Update the development database schema** (Replit/dev `DATABASE_URL`, not production yet):
    ```bash
-   curl -sS -o /dev/null -w "%{http_code}\n" https://rovousa.com/api/static/admin/admin.js
-   # expect 200 (not 404)
+   pnpm --filter @workspace/db run push
+   ALLOW_LIFECYCLE_BACKFILL=true pnpm --filter @workspace/db exec tsx src/migrate-tournament-lifecycle.ts
    ```
-4. Hard-refresh admin: `https://rovousa.com/api/admin#pending` (Basic Auth).
-5. Then Profile → Manage club codes should land on Pending.
+2. **Confirm a production database backup** exists and is restorable (Neon/Replit Postgres snapshot or dump). Do not Publish until this is confirmed.
+3. Ensure `main` includes the lifecycle/admin PRs (already merged on GitHub).
 
-Also run production schema push + lifecycle backfill (section 1) before expecting Far Western in Pending on prod — discovery data from local `rovo_pilot_dev` does not appear on production.
+### Then Publish
+
+1. In Replit project editor → upper-right **Publish**.
+2. After publish finishes, hard-refresh: `https://rovousa.com/api/admin#pending` (Basic Auth).
+3. Confirm tabs include **Pending review**, Scheduled, Published, Club Codes, etc.
+4. Only then run **production** schema push + backfill (section 1) if production DB was not already migrated in a maintenance window.
+5. Configure CA clubs + `ncva_calendar`, run discovery, approve events.
+
+Local/agent DB data (`rovo_pilot_dev`) does **not** appear on production.
 
 ## 3. Production secrets / env
 
