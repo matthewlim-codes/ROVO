@@ -12,8 +12,8 @@ import { recordWatchMatchEvent } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
 import {
-  MATCH_WINDOW_MS,
   hotelsMatch,
+  isWithinMatchWindow,
   normalizeAirportCode,
   routeParam,
 } from "../lib/matching";
@@ -103,13 +103,12 @@ router.post("/watches", requireAuth, async (req, res) => {
           eq(tripsTable.mode, watch.mode),
         ),
       );
-    const watchTime = new Date(watch.datetime).getTime();
     const matched = trips.filter(
       (t) =>
         t.userId !== watch.userId &&
         normalizeAirportCode(t.airport) === watch.airport &&
         hotelsMatch(t.hotel, t.hotelPlaceId, watch.hotel, watch.hotelPlaceId) &&
-        Math.abs(new Date(t.datetime).getTime() - watchTime) <= MATCH_WINDOW_MS,
+        isWithinMatchWindow(t.datetime, watch.datetime),
     );
 
     if (matched.length) {

@@ -115,6 +115,35 @@ describe("matching rules (pilot)", () => {
     const b = new Date(new Date(a).getTime() + MATCH_WINDOW_MS).toISOString();
     assert.equal(isWithinMatchWindow(a, b), true);
   });
+
+  it("matches at 46–60 minutes inclusive and rejects beyond 60", () => {
+    const base = {
+      tournamentId: "t1",
+      airport: "DFW",
+      hotel: "Marriott Marquis Dallas",
+      hotelPlaceId: null as string | null,
+      datetime: "2026-11-14T18:00:00.000Z",
+      mode: "arrival" as const,
+    };
+    const at = (minutes: number, extraMs = 0) => ({
+      ...base,
+      datetime: new Date(
+        new Date(base.datetime).getTime() + minutes * 60_000 + extraMs,
+      ).toISOString(),
+    });
+
+    // Formerly outside the old 45-minute window — must match under the 60-minute rule
+    assert.equal(tripsMatchCriteria(base, at(46)), true);
+    assert.equal(isWithinMatchWindow(base.datetime, at(46).datetime), true);
+    assert.equal(tripsMatchCriteria(base, at(59)), true);
+    assert.equal(tripsMatchCriteria(base, at(60)), true);
+    assert.equal(isWithinMatchWindow(base.datetime, at(60).datetime), true);
+
+    // Anything beyond 60 minutes must fail
+    assert.equal(tripsMatchCriteria(base, at(60, 1)), false);
+    assert.equal(isWithinMatchWindow(base.datetime, at(60, 1).datetime), false);
+    assert.equal(tripsMatchCriteria(base, at(61)), false);
+  });
 });
 
 describe("airport fallback", () => {

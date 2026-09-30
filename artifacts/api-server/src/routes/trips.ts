@@ -13,8 +13,8 @@ import { recordMatchEvents } from "../lib/matchEvents";
 import { requireAuth, getUserId } from "../middlewares/requireAuth";
 import { getOrCreateProfile } from "../lib/profile";
 import {
-  MATCH_WINDOW_MS,
   hotelsMatch,
+  isWithinMatchWindow,
   normalizeAirportCode,
   routeParam,
   tripsMatchCriteria,
@@ -208,8 +208,6 @@ router.post("/trips", requireAuth, async (req, res) => {
       return inserted;
     });
 
-    const tripTime = new Date(trip.datetime).getTime();
-
     const existingTrips = await db
       .select()
       .from(tripsTable)
@@ -263,7 +261,7 @@ router.post("/trips", requireAuth, async (req, res) => {
         w.userId !== trip.userId &&
         hotelsMatch(w.hotel, w.hotelPlaceId, trip.hotel, trip.hotelPlaceId) &&
         normalizeAirportCode(w.airport) === trip.airport &&
-        Math.abs(new Date(w.datetime).getTime() - tripTime) <= MATCH_WINDOW_MS,
+        isWithinMatchWindow(w.datetime, trip.datetime),
     );
 
     if (matchedWatches.length) {

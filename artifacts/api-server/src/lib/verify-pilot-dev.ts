@@ -17,6 +17,7 @@ import {
 } from "@workspace/db/schema";
 import {
   hotelsMatch,
+  isWithinMatchWindow,
   normalizeAirportCode,
   tripsMatchCriteria,
   MATCH_WINDOW_MS,
@@ -182,6 +183,26 @@ async function main() {
       hotelsMatch(hotelA, undefined, hotelB, undefined),
       false,
     );
+  });
+
+  await check("46–60 minute offsets match; beyond 60 does not", () => {
+    const at = (minutes: number, extraMs = 0) => ({
+      ...tripB,
+      hotel: hotelA,
+      hotelPlaceId: null as string | null,
+      datetime: new Date(baseTime.getTime() + minutes * 60_000 + extraMs),
+      mode: "arrival" as const,
+    });
+    // Displayed matches / match notifications / cancellation all use tripsMatchCriteria
+    assert.equal(tripsMatchCriteria(tripA, at(46)), true);
+    assert.equal(tripsMatchCriteria(tripA, at(60)), true);
+    assert.equal(tripsMatchCriteria(tripA, at(60, 1)), false);
+    assert.equal(tripsMatchCriteria(tripA, at(61)), false);
+
+    // Watches use the same isWithinMatchWindow helper
+    assert.equal(isWithinMatchWindow(tripA.datetime, at(46).datetime), true);
+    assert.equal(isWithinMatchWindow(tripA.datetime, at(60).datetime), true);
+    assert.equal(isWithinMatchWindow(tripA.datetime, at(60, 1).datetime), false);
   });
 
   await check("out-of-window times do not match", () => {
