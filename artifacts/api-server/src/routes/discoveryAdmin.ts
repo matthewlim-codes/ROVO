@@ -103,9 +103,18 @@ router.get("/discovery-sources", requireAdminAuth, async (_req, res) => {
   }
 });
 
+function rejectTestOnlyAdapter(adapterKey: string | undefined): string | null {
+  if (adapterKey === "static_fixture" && process.env.ALLOW_TEST_ADAPTERS !== "true") {
+    return "static_fixture is test-only and cannot be enabled in production";
+  }
+  return null;
+}
+
 router.post("/discovery-sources", requireAdminAuth, async (req, res) => {
   const parsed = insertDiscoverySourceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+  const blocked = rejectTestOnlyAdapter(parsed.data.adapterKey);
+  if (blocked) return res.status(400).json({ error: blocked });
   try {
     const [row] = await db
       .insert(discoverySourcesTable)
@@ -128,6 +137,8 @@ router.put("/discovery-sources/:id", requireAdminAuth, async (req, res) => {
   if (!id) return res.status(400).json({ error: "id required" });
   const parsed = insertDiscoverySourceSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+  const blocked = rejectTestOnlyAdapter(parsed.data.adapterKey);
+  if (blocked) return res.status(400).json({ error: blocked });
   try {
     const [row] = await db
       .update(discoverySourcesTable)

@@ -46,10 +46,40 @@ If Scheduled Deployments are unavailable on the plan, use any external HTTPS cro
 1. Admin → **Sources & CA clubs**
 2. Add each California club that should count for attendance evidence.
 3. Add a discovery source with an **implemented** adapter:
-   - `manual_json` — HTTPS JSON array or inline `events` (implemented)
-   - `static_fixture` — tests only
-4. Proposed (not implemented): `aes_official`, `jva_calendar`, `usav_events`
+   - `ncva_calendar` — NCVA official WordPress calendar (implemented; recommended for CA boys)
+   - `manual_json` — HTTPS JSON array or inline `events` (implemented; import workflow)
+   - `static_fixture` — **tests only** (`ALLOW_TEST_ADAPTERS=true`); blocked in production
+4. Proposed (not implemented): `aes_official`, `jva_calendar`, `usav_events` — see `PRODUCTION_TOURNAMENT_DISCOVERY.md` for blockers
 5. Until at least one CA club and one enabled source exist, discovery returns **setup required** and does not guess.
+
+### `manual_json` payload shape
+
+Each array element:
+
+```json
+{
+  "name": "Example Open",
+  "organizer": "NCVA",
+  "organizerEventId": "example-open",
+  "startDate": "2026-12-12",
+  "endDate": "2026-12-13",
+  "timezone": "America/Los_Angeles",
+  "venue": "Capital Sports Center",
+  "city": "McClellan Park",
+  "state": "CA",
+  "gender": "boys",
+  "eventUrl": "https://ncva.com/boysbid/",
+  "attendanceEvidence": [
+    {
+      "sourceUrl": "https://club.example/schedule",
+      "evidenceType": "planned_schedule",
+      "clubOrTeamName": "Example CA Club"
+    }
+  ]
+}
+```
+
+Required: `name`, `startDate`, `endDate`. Do not invent evidence. Config is `{ "url": "https://…" }` or `{ "events": [ … ] }`.
 
 ## Image provider requirements
 
