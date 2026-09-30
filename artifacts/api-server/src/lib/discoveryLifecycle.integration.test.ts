@@ -193,7 +193,7 @@ describe("discovery + lifecycle integration (isolated DB)", { skip: !hasIsolated
     assert.equal(afterCount, beforeCount);
   });
 
-  it("lifecycle publishes within 30 days and archives after end", async () => {
+  it("lifecycle publishes within 6 months and archives after end", async () => {
     const [t] = await db
       .insert(tournamentsTable)
       .values({
@@ -211,7 +211,7 @@ describe("discovery + lifecycle integration (isolated DB)", { skip: !hasIsolated
 
     const published = await runLifecycleJob({
       dryRun: false,
-      now: new Date("2026-11-01T17:00:00.000Z"), // publish day for 2026-12-01 - 30d
+      now: new Date("2026-06-01T17:00:00.000Z"), // publish day for 2026-12-01 − 6 months
     });
     assert.ok(published.published >= 1);
 

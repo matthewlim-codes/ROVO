@@ -3,7 +3,11 @@
  * Uses Intl time-zone formatting — no paid timezone DB dependency.
  */
 
-export const PUBLISH_LEAD_DAYS = 30;
+/** How far ahead approved tournaments appear on the public site. */
+export const PUBLISH_LEAD_MONTHS = 6;
+
+/** @deprecated Use PUBLISH_LEAD_MONTHS — kept only for older imports. */
+export const PUBLISH_LEAD_DAYS = PUBLISH_LEAD_MONTHS * 30;
 
 export function calendarDateInTimeZone(
   instant: Date,
@@ -44,14 +48,25 @@ export function addCalendarDays(ymd: string, days: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
+/** Add whole calendar months; clamps day when the target month is shorter. */
+export function addCalendarMonths(ymd: string, months: number): string {
+  const { y, m, d } = parseCalendarDate(ymd);
+  const idx = y * 12 + (m - 1) + months;
+  const yy = Math.floor(idx / 12);
+  const mm = (idx % 12) + 1;
+  const lastDay = new Date(Date.UTC(yy, mm, 0, 12, 0, 0)).getUTCDate();
+  const dd = Math.min(d, lastDay);
+  return `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
+
 export function compareCalendarDates(a: string, b: string): number {
   if (a === b) return 0;
   return a < b ? -1 : 1;
 }
 
-/** First calendar day the event should be published (start − 30 days). */
+/** First calendar day the event should be published (start − 6 months). */
 export function expectedPublishDate(startDate: string): string {
-  return addCalendarDays(startDate, -PUBLISH_LEAD_DAYS);
+  return addCalendarMonths(startDate, -PUBLISH_LEAD_MONTHS);
 }
 
 /**

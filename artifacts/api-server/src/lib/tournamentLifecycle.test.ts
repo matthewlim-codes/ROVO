@@ -2,34 +2,36 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   addCalendarDays,
+  addCalendarMonths,
   calendarDateInTimeZone,
   compareCalendarDates,
   expectedPublishDate,
-  PUBLISH_LEAD_DAYS,
+  PUBLISH_LEAD_MONTHS,
   shouldArchivePublished,
   shouldPublishApproved,
   normalizeEventIdentity,
 } from "./tournamentLifecycle";
 
 describe("tournament lifecycle calendar rules", () => {
-  it("publishes exactly 30 calendar days before start", () => {
-    assert.equal(PUBLISH_LEAD_DAYS, 30);
-    assert.equal(expectedPublishDate("2026-12-15"), "2026-11-15");
-    assert.equal(addCalendarDays("2026-03-01", -30), "2026-01-30");
+  it("publishes exactly 6 calendar months before start", () => {
+    assert.equal(PUBLISH_LEAD_MONTHS, 6);
+    assert.equal(expectedPublishDate("2026-12-15"), "2026-06-15");
+    assert.equal(addCalendarMonths("2027-03-01", -6), "2026-09-01");
+    // Clamp end-of-month (Aug 31 → Feb 28 in non-leap year)
+    assert.equal(addCalendarMonths("2026-08-31", -6), "2026-02-28");
   });
 
   it("publishes on the publish date and within the window", () => {
-    // start 2026-12-15 → publish on 2026-11-15
+    // start 2026-12-15 → publish on 2026-06-15
     const startDate = "2026-12-15";
     const endDate = "2026-12-17";
     const tz = "America/Los_Angeles";
-    // 2026-11-15 18:00 UTC = still 2026-11-15 in LA
-    const onPublishDay = new Date("2026-11-15T18:00:00.000Z");
+    const onPublishDay = new Date("2026-06-15T18:00:00.000Z");
     assert.equal(
       shouldPublishApproved({ startDate, endDate, timezone: tz, now: onPublishDay }),
       true,
     );
-    const before = new Date("2026-11-14T12:00:00.000Z");
+    const before = new Date("2026-06-14T12:00:00.000Z");
     assert.equal(
       shouldPublishApproved({ startDate, endDate, timezone: tz, now: before }),
       false,
@@ -39,7 +41,6 @@ describe("tournament lifecycle calendar rules", () => {
   it("archives after the final local calendar day ends", () => {
     const endDate = "2026-11-16";
     const tz = "America/Los_Angeles";
-    // 2026-11-17 10:00 UTC = 2026-11-17 02:00 LA → after end
     assert.equal(
       shouldArchivePublished({
         endDate,
@@ -48,7 +49,6 @@ describe("tournament lifecycle calendar rules", () => {
       }),
       true,
     );
-    // Still on end date in LA (2026-11-16 20:00 UTC = 12:00 LA)
     assert.equal(
       shouldArchivePublished({
         endDate,
@@ -84,5 +84,6 @@ describe("tournament lifecycle calendar rules", () => {
     });
     assert.equal(a, b);
     assert.equal(compareCalendarDates("2026-01-01", "2026-01-02"), -1);
+    assert.equal(addCalendarDays("2026-03-01", -1), "2026-02-28");
   });
 });
